@@ -64,9 +64,19 @@ source as failed: put the new id in `parts.md`'s Tools table and run
 
 ## The Routine itself
 
-- Its sessions have no `list_sessions` (its first run said so), so the
-  sessions pass reports that source as failed and no draft counts as
-  finished. The page never shows that source.
+- Of the Claude Code Remote tools, its sessions have `add_repo`,
+  `check_repo_access`, `list_repos` and the Routine tools (`list_triggers`,
+  `send_later` and so on), but not `list_sessions`, `get_session` or
+  `list_environments` (its first run's tool list). So the sessions pass
+  reports that source as failed and no draft counts as finished (the page
+  never shows that source), and the run takes `environment` from the newest
+  brief.
+- Its subagents run in the background: the orchestrator ends its turn after
+  starting a wave and wakes as each pass reports back.
+- The first run, all three waves and two reviews, took 15 minutes and cost
+  $11.76: $7.52 on Opus (the orchestrator and the reviews), $4.09 on Sonnet,
+  $0.15 on Haiku. The orchestrator's context ended at about 150K tokens, with
+  no review text in it.
 
 - With no model set, the Routine's sessions run on `claude-sonnet-5-5` (its
   last run, `cse_01PeSWfab3vHvnCUzTShmVYM`).

@@ -55,7 +55,9 @@ scripts do.
    window starts 3 days ago on a Monday, 1 day ago otherwise. If today's
    brief already exists, keep its `version`. `get_session` with no
    `session_id` gives this session's `environment_id`; `list_environments`
-   gives its name. Write `<scratch>/header.json`:
+   gives its name. A Routine's session has neither: then use the
+   `environment` of the newest brief, or `{id: null, name: null}` when there
+   is none. Write `<scratch>/header.json`:
    `{run_date, since, login, environment: {id, name}, page_url, timezone, notes: []}`.
 2. **Wave 1.** Start the wave-1 passes (parts.md). Then get the review
    prompt: `add_repo` `taxwire/taxwire-skills` with `access: "read"`,
