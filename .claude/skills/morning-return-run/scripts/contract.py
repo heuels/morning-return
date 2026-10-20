@@ -5,6 +5,7 @@ which part of it. Both are read from their markdown tables here, so neither
 is ever copied into code.
 """
 
+import json
 import re
 from typing import NamedTuple
 
@@ -165,3 +166,20 @@ def validate(brief: dict, fields: dict[str, set[str]]) -> list[str]:
     if isinstance(brief.get("linear"), dict):
         errors += _keys("linear", brief["linear"], fields["Linear"])
     return errors
+
+
+# Shared by the scripts that read the run's scratch directory.
+REVIEW_LIMIT = 8
+TEAM_DOMAIN = "taxwire.com"
+
+
+def read_json(path):
+    """A file's JSON, or None when it is missing or doesn't parse."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def read_parts(scratch, names):
+    return {name: read_json(scratch / "parts" / f"{name}.json") for name in names}
