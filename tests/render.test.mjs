@@ -14,7 +14,7 @@ const PAGE_DIR = fileURLToPath(new URL("../skills/morning-routine/page/", import
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/brief.json", import.meta.url), "utf8"));
 const TODAY = "2026-10-20";
 
-const HARNESS = `<!doctype html><meta charset="utf-8"><body><script type="module">
+const HARNESS = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/styles.css"><body><script type="module">
 import { renderBrief, renderEmpty } from "/render.js";
 window.renderBrief = renderBrief;
 window.renderEmpty = renderEmpty;
@@ -33,12 +33,14 @@ before(async () => {
     }
     const path = normalize(join(PAGE_DIR, req.url));
     if (!path.startsWith(PAGE_DIR)) return res.writeHead(403).end();
+    const types = { ".js": "text/javascript", ".css": "text/css" };
+    let body;
     try {
-      const type = extname(path) === ".js" ? "text/javascript" : "text/html";
-      res.writeHead(200, { "content-type": type }).end(await readFile(path));
+      body = await readFile(path);
     } catch {
-      res.writeHead(404).end();
+      return res.writeHead(404).end();
     }
+    res.writeHead(200, { "content-type": types[extname(path)] ?? "text/html" }).end(body);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -60,8 +62,9 @@ async function openHarness() {
   return page;
 }
 
-async function render(brief, reviews = {}, today = TODAY) {
+async function render(brief, reviews = {}, today = TODAY, viewport = { width: 1280, height: 900 }) {
   const page = await openHarness();
+  await page.setViewportSize(viewport);
   await page.evaluate(
     ([b, r, t]) => document.body.replaceChildren(window.renderBrief(document, b, r, t)),
     [brief, reviews, today],
@@ -69,10 +72,47 @@ async function render(brief, reviews = {}, today = TODAY) {
   return page;
 }
 
-test("sections render in order", async () => {
-  const page = await render(clone());
-  const order = await page.$$eval("[data-section]", (els) => els.map((e) => e.dataset.section));
+const sectionBoxes = (page) =>
+  page.$$eval("[data-section]", (els) =>
+    els.map((e) => {
+      const r = e.getBoundingClientRect();
+      return { name: e.dataset.section, x: r.left, y: r.top };
+    }),
+  );
+
+test("phone width stacks sections in the brief's order", async () => {
+  const page = await render(clone(), {}, TODAY, { width: 390, height: 900 });
+  const order = (await sectionBoxes(page)).sort((a, b) => a.y - b.y).map((s) => s.name);
   assert.deepEqual(order, ["today", "review-prs", "my-prs", "stale-closed", "slack", "mail"]);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+});
+
+test("desktop puts the PRs beside the day, Slack and mail", async () => {
+  const page = await render(clone());
+  const box = Object.fromEntries((await sectionBoxes(page)).map((s) => [s.name, s]));
+  for (const left of ["review-prs", "my-prs", "stale-closed"]) {
+    for (const right of ["today", "slack", "mail"]) {
+      assert.ok(box[left].x < box[right].x, `${left} should sit left of ${right}`);
+    }
+  }
+});
+
+test("tiles count what's waiting and link to it", async () => {
+  const page = await render(clone());
+  const tile = (name) => page.locator(`[data-tile="${name}"]`);
+  assert.match(await tile("review").textContent(), /^2\b/);
+  assert.match(await tile("merge").textContent(), /^1\b/);
+  assert.match(await tile("slack").textContent(), /^1\b/);
+  assert.match(await tile("mail").textContent(), /^1\b/);
+  assert.equal(await tile("review").getAttribute("href"), "#review-prs");
+  assert.equal(await page.locator("#review-prs").count(), 1);
+});
+
+test("a failed source's tile shows a dash, not zero", async () => {
+  const brief = clone();
+  brief.sources.slack = { ok: false, error: "401 from Slack" };
+  const page = await render(brief);
+  assert.match(await page.locator('[data-tile="slack"]').textContent(), /^\u2014/);
 });
 
 test("empty sections are dropped", async () => {
@@ -145,10 +185,35 @@ test("review findings expand in place", async () => {
   };
   const page = await render(brief, reviews);
   const review = page.locator(`[data-pr="${brief.review_prs[0].number}"] [data-review]`);
-  const summary = await review.locator("summary").textContent();
+  const summary = await review.locator("summary").first().textContent();
   assert.match(summary, /needs-work/);
   assert.match(summary, /High 1/);
   assert.match(await review.locator("pre").textContent(), /# Code Review/);
+});
+
+test("review findings list each issue before the full write-up", async () => {
+  const brief = clone();
+  const id = brief.review_prs[0].review_id;
+  const markdown = [
+    "# Code Review",
+    "## Summary",
+    "- Totals: Critical 0, High 1, Medium 1, Low 0 (Total 2)",
+    "- Verdict: needs-work",
+    "## Issues",
+    "| ID | Sev | Cat | Location | Issue |",
+    "|----|-----|-----|----------|-------|",
+    "| SEC-1 | High | SEC | `api/void.py:42` `void_invoice()` | Voids an invoice twice on retry |",
+    "| PERF-1 | Medium | PERF | `api/sync.py:9` `sync()` | N+1 query per line item |",
+    "## Details",
+  ].join("\n");
+  const reviews = { [id]: { verdict: "needs-work", counts: { critical: 0, high: 1, medium: 1, low: 0 }, markdown } };
+  const page = await render(brief, reviews);
+  const issues = page.locator(`[data-pr="${brief.review_prs[0].number}"] [data-review] [data-issue]`);
+  assert.equal(await issues.count(), 2);
+  const first = await issues.first().textContent();
+  assert.match(first, /High/);
+  assert.match(first, /Voids an invoice twice on retry/);
+  assert.match(first, /api\/void\.py:42/);
 });
 
 test("team requests are listed but not reviewed", async () => {
