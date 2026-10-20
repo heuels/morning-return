@@ -6,40 +6,41 @@
 //
 // Everything gathered from GitHub, Slack, mail, Linear and calendars is set as
 // text, never as markup. Only https:// links become anchors, and photos load
-// only from data:image/ URIs.
+// only from data:image/ URIs. The pieces themselves (chips, buttons, pills,
+// rows, sections, folds, dialogs) come from ui.js; this file decides what
+// goes in them.
 
 import { icon, logo } from "./icons.js";
 import { renderMarkdown } from "./markdown.js";
 import { groupStacks, nextStep, rankMine, rankReviewPrs } from "./rank.js";
 import { parseReviewIssues } from "./review.js";
 import { prefillUrl, reviewPrompt, stepPrompt, title as sessionTitle } from "./session.js";
+import {
+  action,
+  avatar,
+  button,
+  cell,
+  chip,
+  chipClass,
+  dialogShell,
+  fold,
+  h,
+  isHttps,
+  link,
+  note,
+  pile,
+  pill,
+  row,
+  section,
+  showDialog,
+  tip,
+} from "./ui.js";
 
 const SOURCE_NAMES = { github: "GitHub", slack: "Slack", gmail: "Gmail", calendar: "Google Calendar", linear: "Linear" };
 
-function h(doc, tag, attrs, ...children) {
-  const el = doc.createElement(tag);
-  for (const [name, value] of Object.entries(attrs ?? {})) {
-    if (value == null || value === false) continue;
-    el.setAttribute(name, value === true ? "" : String(value));
-  }
-  for (const child of children.flat(Infinity)) {
-    if (child == null || child === false || child === "") continue;
-    el.append(typeof child === "object" ? child : String(child));
-  }
-  return el;
-}
-
-const isHttps = (url) => typeof url === "string" && url.startsWith("https://");
-const isPhoto = (src) => typeof src === "string" && src.startsWith("data:image/");
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const sourceOk = (brief, source) => brief.sources?.[source]?.ok !== false;
 const firstName = (name) => String(name ?? "").split(/\s+/)[0];
-
-function link(doc, url, attrs, ...children) {
-  return isHttps(url)
-    ? h(doc, "a", { ...attrs, href: url, target: "_blank", rel: "noopener noreferrer" }, ...children)
-    : h(doc, "span", attrs, ...children);
-}
 
 // ---- dates and times -----------------------------------------------------------
 
@@ -100,47 +101,6 @@ function when(iso, today, timeZone) {
 
 // ---- small parts -----------------------------------------------------------------
 
-const badge = (doc, text, tone, attrs) => h(doc, "span", { class: `b${tone ? ` ${tone}` : ""}`, ...attrs }, text);
-
-function cell(doc, signal, name, tone, tip, ...extra) {
-  const attrs = { class: "ic", "data-signal": signal };
-  if (tip) Object.assign(attrs, { "data-tip": tip, tabindex: "0", "aria-label": tip });
-  return h(doc, "span", attrs, name ? icon(doc, name, tone) : null, ...extra);
-}
-
-function action(doc, { tone, verb, url, sub }) {
-  const linked = isHttps(url);
-  const inner = [
-    h(doc, "span", { class: "v" }, verb, linked ? icon(doc, "arrow") : null),
-    sub ? h(doc, "span", { class: "sub" }, sub) : null,
-  ];
-  const cls = `act ${linked ? tone : "idle"}`;
-  return linked
-    ? h(doc, "a", { class: cls, href: url, target: "_blank", rel: "noopener noreferrer", "data-action": "" }, inner)
-    : h(doc, "span", { class: cls, "data-action": "" }, inner);
-}
-
-function row(doc, { ln, title, tags, meta, extra, sig, when: age, lateness, act, cls, attrs }) {
-  return h(
-    doc,
-    "div",
-    { class: `row${cls ? ` ${cls}` : ""}`, ...attrs },
-    h(doc, "span", { class: "ln" }, ln ?? ""),
-    h(
-      doc,
-      "div",
-      { class: "body" },
-      h(doc, "div", { class: "t" }, title),
-      tags?.flat(Infinity).some(Boolean) ? h(doc, "div", { class: "tags" }, tags) : null,
-      (Array.isArray(meta) ? meta.length : meta) ? h(doc, "div", { class: "m" }, meta) : null,
-      extra,
-    ),
-    h(doc, "span", { class: "sig" }, sig),
-    h(doc, "span", { class: `when${lateness ? ` ${lateness}` : ""}` }, age ?? ""),
-    act,
-  );
-}
-
 // PR sections carry their column icons in the heading itself, lined up with
 // the rows below; the other sections have a plain heading.
 const COLUMNS = [
@@ -150,20 +110,10 @@ const COLUMNS = [
   ["threads", "thread", "Unresolved review threads"],
 ];
 
-function section(doc, { id, numeral, label, count, children, ageTip }) {
-  const heading = ageTip
-    ? h(
-        doc,
-        "h2",
-        { class: "cols-h" },
-        h(doc, "span", { class: "lbl" }, h(doc, "span", { class: "pn" }, numeral), label),
-        h(doc, "span", { class: "sig" }, COLUMNS.map(([signal, name, tip]) => cell(doc, signal, name, "colh", tip))),
-        cell(doc, "age", "hourglass", "colh", ageTip),
-        h(doc, "span", { class: "cntc" }, h(doc, "span", { class: "cnt" }, count)),
-      )
-    : h(doc, "h2", null, h(doc, "span", { class: "pn" }, numeral), label, h(doc, "span", { class: "cnt" }, count));
-  return h(doc, "section", { class: "part", id, "data-section": id, "data-slot": id }, heading, children);
-}
+const columnHeads = (doc, ageTip) => [
+  h(doc, "span", { class: "sig" }, COLUMNS.map(([signal, name, text]) => cell(doc, signal, name, "colh", text))),
+  cell(doc, "age", "hourglass", "colh", ageTip),
+];
 
 function sourceError(doc, brief, source, slot) {
   const error = brief.sources?.[source]?.error ?? "unknown error";
@@ -176,9 +126,9 @@ function sourceError(doc, brief, source, slot) {
   );
 }
 
-function fold(doc, group, open, summary, rows) {
-  return h(doc, "details", { class: "acc", "data-group": group, open }, h(doc, "summary", null, icon(doc, "chev"), h(doc, "span", null, summary)), rows);
-}
+// Rows folded away under a one-line summary.
+const folded = (doc, group, open, summary, rows) =>
+  fold(doc, { cls: "acc", open, attrs: { "data-group": group } }, h(doc, "span", null, summary), rows);
 
 // ---- people ----------------------------------------------------------------------
 
@@ -196,29 +146,18 @@ function outLabel(entry, today) {
 }
 
 // One look for every teammate on the page: the same circle in a pill or a
-// pile, naming them on hover.
-function face(ctx, person, note) {
-  const { doc } = ctx;
+// pile, naming them on hover. `role` is "organizer" or "optional" in a meeting.
+function face(ctx, person, role) {
   const out = outLabel(ctx.out.get(person.email), ctx.today);
-  const tip = [person.name, person.org, note, out].filter(Boolean).join(" · ");
-  return h(
-    doc,
-    "span",
-    { class: "av", "data-tip": tip, tabindex: "0", "aria-label": tip },
-    isPhoto(person.photo) ? h(doc, "img", { src: person.photo, alt: "" }) : h(doc, "b", null, initials(person.name)),
-  );
+  const label = [person.name, person.org, role, out].filter(Boolean).join(" · ");
+  return avatar(ctx.doc, { photo: person.photo, initials: initials(person.name), label });
 }
 
-const pill = (ctx, person, note) =>
-  h(ctx.doc, "span", { class: "pp", "data-person": person.email }, face(ctx, person, note), firstName(person.name ?? person.email));
+const teammate = (ctx, person, role) =>
+  pill(ctx.doc, { name: firstName(person.name ?? person.email), face: face(ctx, person, role), attrs: { "data-person": person.email } });
 
-const pile = (ctx, people) =>
-  h(
-    ctx.doc,
-    "span",
-    { class: "pile" },
-    people.map(({ person, note }) => h(ctx.doc, "span", { class: "pile-face", "data-person": person.email }, face(ctx, person, note))),
-  );
+const faces = (ctx, people) =>
+  pile(ctx.doc, people.map(({ person, role }) => ({ face: face(ctx, person, role), attrs: { "data-person": person.email } })));
 
 function resolve(ctx, email, fallback = {}) {
   const known = ctx.people[email];
@@ -234,9 +173,7 @@ function resolve(ctx, email, fallback = {}) {
 const isTeammate = (ctx, attendee) => Boolean(ctx.people[attendee.email]) || attendee.org === "Taxwire";
 
 // Anyone who isn't a teammate: the same rounded pill, grey and without a photo.
-function guest(doc, name, tip) {
-  return h(doc, "span", { class: "pp guest", "data-external": "", "data-tip": tip ?? name, tabindex: "0", "aria-label": tip ?? name }, name);
-}
+const guest = (doc, name, label) => pill(doc, { name, guest: true, label });
 
 // Outside attendees as grey pills, each organisation named once after its people.
 function externals(doc, attendees) {
@@ -247,7 +184,7 @@ function externals(doc, attendees) {
       const name = a.name ?? a.email;
       return guest(doc, name, [name, org, a.organizer ? "organizer" : a.optional ? "optional" : ""].filter(Boolean).join(" · "));
     }),
-    org ? h(doc, "span", { class: "ext" }, org) : null,
+    org ? note(doc, org) : null,
   ]);
 }
 
@@ -257,7 +194,7 @@ function awayBadges(ctx, people) {
     .filter(({ email }) => ctx.out.has(email))
     .map(({ email, role }) => {
       const who = resolve(ctx, email);
-      return badge(ctx.doc, `${firstName(who.name)} ${outLabel(ctx.out.get(email), ctx.today)}${role ? ` · ${role}` : ""}`, "warn");
+      return chip(ctx.doc, `${firstName(who.name)} ${outLabel(ctx.out.get(email), ctx.today)}${role ? ` · ${role}` : ""}`, { tone: "warn" });
     });
 }
 
@@ -275,12 +212,17 @@ function cleanTitle(title) {
 
 const shortRepo = (repo) => String(repo ?? "").split("/").pop().replace(/^taxwire-/, "");
 
-const ref = (doc, repo, numbers) => h(doc, "span", { class: "ref" }, shortRepo(repo), h(doc, "b", null, `#${numbers}`));
+// The repo and number every PR line carries, e.g. "example-api#101". One
+// span inside, so the chip's gap doesn't open between the two halves.
+const ref = (doc, repo, numbers) => chip(doc, h(doc, "span", null, shortRepo(repo), h(doc, "b", null, `#${numbers}`)), { mono: true });
+
+// A Linear issue id, outlined so it reads apart from the PR's own ref.
+const linChip = (doc, id, url, attrs) => chip(doc, id, { href: url, mono: true, outline: true, cls: "lin", attrs });
 
 function linearChip(ctx, id) {
   const issue = id ? ctx.linear[id] : null;
   if (!issue) return null;
-  return link(ctx.doc, issue.url, { class: "lin", "data-tip": issue.title, "aria-label": `${id}: ${issue.title}` }, id);
+  return linChip(ctx.doc, id, issue.url, tip(issue.title, `${id}: ${issue.title}`));
 }
 
 function sizeOf(pr) {
@@ -296,14 +238,11 @@ const bucket = (n) => (n <= 10 ? "XS" : n <= 100 ? "S" : n <= 500 ? "M" : n <= 1
 function sizeBadge(doc, pr) {
   const { add, del, hidden } = sizeOf(pr);
   const lines = add + del;
-  const tip = hidden == null ? `${lines} lines changed` : `${lines} reviewable lines${hidden ? `, ${hidden} test lines not counted` : ""}`;
-  return h(
+  const text = hidden == null ? `${lines} lines changed` : `${lines} reviewable lines${hidden ? `, ${hidden} test lines not counted` : ""}`;
+  return chip(
     doc,
-    "span",
-    { class: "sz", "data-tip": tip, tabindex: "0", "aria-label": tip },
-    h(doc, "b", null, bucket(lines)),
-    h(doc, "span", { class: "add" }, `+${add}`),
-    h(doc, "span", { class: "del" }, `−${del}`),
+    [h(doc, "b", null, bucket(lines)), h(doc, "span", { class: "add" }, `+${add}`), h(doc, "span", { class: "del" }, `−${del}`)],
+    { mono: true, outline: true, cls: "sz", attrs: tip(text) },
   );
 }
 
@@ -342,39 +281,17 @@ function signals(doc, pr) {
 
 // ---- dialogs: the full review, and starting a Claude Code session -------------------
 
-function dialogShell(doc, kind, heading) {
-  const close = h(doc, "button", { type: "button", class: "x", "aria-label": "Close" }, icon(doc, "close"));
-  const body = h(doc, "div", { class: "dlg-body" });
-  const dialog = h(
-    doc,
-    "dialog",
-    { class: `dlg ${kind}`, [`data-${kind}-dialog`]: "", "aria-label": heading },
-    h(doc, "header", { class: "dlg-head" }, h(doc, "h2", null, heading), close),
-    body,
-  );
-  close.addEventListener("click", () => dialog.close());
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
-  });
-  return { dialog, body };
-}
-
-function show(dialog) {
-  if (typeof dialog.showModal === "function") dialog.showModal();
-  else dialog.setAttribute("open", "");
-}
-
 function reviewDialog(ctx) {
-  const { dialog, body } = dialogShell(ctx.doc, "review", "First-pass review");
+  const { dialog, title, body } = dialogShell(ctx.doc, "review", "First-pass review");
   return {
     dialog,
     open(pr, review) {
-      dialog.querySelector(".dlg-head h2").textContent = `First-pass review · ${shortRepo(pr.repo)}#${pr.number}`;
+      title.textContent = `First-pass review · ${shortRepo(pr.repo)}#${pr.number}`;
       body.replaceChildren(
         h(ctx.doc, "p", { class: "dlg-sub" }, cleanTitle(pr.title).text, " · ", String(review.verdict ?? "").replace(/-/g, " ")),
         renderMarkdown(ctx.doc, review.markdown),
       );
-      show(dialog);
+      showDialog(dialog);
     },
   };
 }
@@ -386,15 +303,20 @@ function sessionDialog(ctx) {
   const prompt = h(doc, "textarea", { name: "prompt", id: "session-prompt", rows: "14", spellcheck: "false" });
   const where = h(doc, "p", { class: "dlg-sub" });
   const status = h(doc, "p", { class: "dlg-status", role: "status" });
-  const fallback = h(doc, "a", { class: "btn", "data-session-link": "", target: "_blank", rel: "noopener noreferrer" }, "Open in claude.ai/code", icon(doc, "arrow"));
-  const start = ctx.startSession ? h(doc, "button", { type: "button", class: "btn primary", "data-start": "" }, icon(doc, "terminal"), "Start session") : null;
-  if (!start) fallback.classList.add("primary");
-  const cancel = h(doc, "button", { type: "button", class: "btn quiet" }, "Cancel");
-  cancel.addEventListener("click", () => dialog.close());
+  const start = ctx.startSession
+    ? button(doc, { kind: "primary", attrs: { "data-start": "" } }, icon(doc, "terminal"), "Start session")
+    : null;
+  const fallback = button(
+    doc,
+    { as: "a", kind: start ? null : "primary", attrs: { "data-session-link": "" } },
+    "Open in claude.ai/code",
+    icon(doc, "arrow"),
+  );
+  const cancel = button(doc, { kind: "plain", onClick: () => dialog.close() }, "Cancel");
   body.append(
-    h(doc, "label", { for: "session-title" }, "Title"),
+    h(doc, "label", { for: "session-title", class: "caps" }, "Title"),
     titleInput,
-    h(doc, "label", { for: "session-prompt" }, "Prompt"),
+    h(doc, "label", { for: "session-prompt", class: "caps" }, "Prompt"),
     prompt,
     where,
     h(doc, "div", { class: "dlg-actions" }, start, fallback, cancel),
@@ -441,16 +363,13 @@ function sessionDialog(ctx) {
       status.textContent = "";
       if (start) start.disabled = false;
       refreshLink();
-      show(dialog);
+      showDialog(dialog);
     },
   };
 }
 
-function sessionButton(ctx, label, open) {
-  const button = h(ctx.doc, "button", { type: "button", class: "cc", "data-session": "" }, icon(ctx.doc, "terminal"), label);
-  button.addEventListener("click", open);
-  return button;
-}
+const sessionButton = (ctx, label, open) =>
+  button(ctx.doc, { size: "sm", attrs: { "data-session": "" }, onClick: open }, icon(ctx.doc, "terminal"), label);
 
 // GitHub anchors a file in a PR's "Files changed" view by the SHA-256 of its
 // path, and a line on the new side with R<line>.
@@ -505,20 +424,20 @@ function reviewDetails(ctx, pr, review) {
       )
     : null;
   const selected = () => boxes.filter(([box]) => box.checked).map(([, issue]) => issue);
-  const full = h(doc, "button", { type: "button", class: "cc quiet", "data-full": "" }, icon(doc, "book"), "Full review");
-  full.addEventListener("click", () => ctx.reviews$.open(pr, review));
-  return h(
+  const full = button(
     doc,
-    "details",
-    { class: "rv", "data-review": "" },
-    h(
-      doc,
-      "summary",
-      { class: `b review ${VERDICT_TONES[verdict] ?? ""}` },
-      icon(doc, "chev"),
+    { size: "sm", kind: "quiet", attrs: { "data-full": "" }, onClick: () => ctx.reviews$.open(pr, review) },
+    icon(doc, "book"),
+    "Full review",
+  );
+  // The summary is a chip in the verdict's tone, so the fold reads as a tag.
+  return fold(
+    doc,
+    { cls: "rv", attrs: { "data-review": "" }, summaryClass: chipClass({ tone: VERDICT_TONES[verdict] }) },
+    [
       `1st pass · ${verdict.replace(/-/g, " ")}`,
       SEVERITIES.filter((k) => counts[k]).map((k) => h(doc, "i", { class: `sev ${k}` }, `${counts[k]}${k[0].toUpperCase()}`)),
-    ),
+    ],
     list,
     h(
       doc,
@@ -539,7 +458,7 @@ function reviewDetails(ctx, pr, review) {
 
 function author(ctx, pr) {
   return pr.author_email && (ctx.people[pr.author_email] || ctx.out.has(pr.author_email))
-    ? pill(ctx, resolve(ctx, pr.author_email))
+    ? teammate(ctx, resolve(ctx, pr.author_email))
     : guest(ctx.doc, pr.author ?? "", `${pr.author} on GitHub`);
 }
 
@@ -585,7 +504,7 @@ function compactRow(ctx, pr, verb) {
 }
 
 const staleBadge = (doc, pr) =>
-  pr.stale && pr.stale_closes_on ? badge(doc, `stale · closes ${weekdayMonthDay(pr.stale_closes_on)}`, "bad") : null;
+  pr.stale && pr.stale_closes_on ? chip(doc, `stale · closes ${weekdayMonthDay(pr.stale_closes_on)}`, { tone: "bad" }) : null;
 
 const SESSION_STEPS = new Set(["Fix CI", "Resolve", "Answer", "Address"]);
 
@@ -629,6 +548,9 @@ function myRow(ctx, pr, n, { grouped }) {
   });
 }
 
+// A step's tone as a chip's: merge-ready is ok, broken is bad.
+const STEP_TONES = { go: "ok", fix: "bad", warn: "warn" };
+
 function stackRow(ctx, chain, n, { grouped }) {
   const { doc } = ctx;
   const bottom = chain[0];
@@ -642,13 +564,18 @@ function stackRow(ctx, chain, n, { grouped }) {
     { class: "stack" },
     chain.map((pr, i) => {
       const own = nextStep(pr);
-      const tip = `#${pr.number}: ${own.verb}`;
-      return link(doc, pr.url, { class: `seg ${own.tone}`, "data-segment": "", "data-tip": tip, "aria-label": tip }, String(i + 1));
+      return chip(doc, h(doc, "b", null, String(i + 1)), {
+        href: pr.url,
+        tone: STEP_TONES[own.tone],
+        mono: true,
+        square: true,
+        attrs: { "data-segment": "", ...tip(`#${pr.number}: ${own.verb}`) },
+      });
     }),
   );
   return row(doc, {
     ln: n,
-    title: [name, h(doc, "span", { class: "cnt2" }, plural(chain.length, "PR"))],
+    title: [name, note(doc, plural(chain.length, "PR"), { mono: true })],
     tags: [
       ref(doc, bottom.repo, `${bottom.number}–${chain.at(-1).number}`),
       segments,
@@ -681,10 +608,10 @@ function linearBand(ctx, id, others) {
     icon(doc, "issue", "dim"),
     link(doc, issue.url, { class: "grp-id" }, id),
     h(doc, "span", { class: "grp-t" }, issue.title),
-    issue.status ? badge(doc, issue.status, "") : null,
+    issue.status ? chip(doc, issue.status) : null,
     others.map((pr) => {
       const [word, tone] = PR_STATES[pr.state] ?? [pr.state ?? "", ""];
-      return link(doc, pr.url, { class: `sib ${tone}` }, `${shortRepo(pr.repo)}#${pr.number} ${word}`);
+      return chip(doc, `${shortRepo(pr.repo)}#${pr.number} ${word}`, { href: pr.url, tone, mono: true });
     }),
   );
 }
@@ -709,9 +636,9 @@ function attendeeTags(ctx, meeting) {
   const attendees = meeting.attendees ?? [];
   const team = attendees.filter((a) => isTeammate(ctx, a));
   const others = attendees.filter((a) => !isTeammate(ctx, a));
-  const note = (a) => (a.organizer ? "organizer" : a.optional ? "optional" : "");
-  const faces = team.map((a) => ({ person: resolve(ctx, a.email, a), note: note(a) }));
-  return [faces.length > 3 ? pile(ctx, faces) : faces.map(({ person, note: n }) => pill(ctx, person, n)), externals(ctx.doc, others)];
+  const role = (a) => (a.organizer ? "organizer" : a.optional ? "optional" : "");
+  const people = team.map((a) => ({ person: resolve(ctx, a.email, a), role: role(a) }));
+  return [people.length > 3 ? faces(ctx, people) : people.map(({ person, role: r }) => teammate(ctx, person, r)), externals(ctx.doc, others)];
 }
 
 function meetingRow(ctx, meeting, i) {
@@ -732,8 +659,8 @@ function meetingRow(ctx, meeting, i) {
     ln: clock(meeting.start, tz),
     title: link(doc, missing ? null : meeting.url, { class: "tl" }, meeting.title),
     tags: [
-      missing ? badge(doc, "Not on calendar", "alarm", { "data-badge": "not-on-calendar" }) : null,
-      kindLabel ? badge(doc, kindLabel, kindTone) : null,
+      missing ? chip(doc, "Not on calendar", { tone: "alarm", attrs: { "data-badge": "not-on-calendar" } }) : null,
+      kindLabel ? chip(doc, kindLabel, { tone: kindTone }) : null,
       attendeeTags(ctx, meeting),
     ],
     meta: [meeting.context, then].filter(Boolean).flatMap((x, j) => (j ? [" ", x] : [x])),
@@ -769,13 +696,11 @@ function dayStrip(ctx, meetings) {
       ...blocks.map((b) => {
         const [s, e] = span(b);
         const range = `${clock(b.start, tz)}–${clock(b.end, tz)}`;
-        const tip = b.kind === "meeting" ? `${b.title} ${range}${b.missing ? " · not on calendar" : ""}` : `${BLOCK_NAMES[b.kind] ?? b.kind} ${range}`;
+        const text = b.kind === "meeting" ? `${b.title} ${range}${b.missing ? " · not on calendar" : ""}` : `${BLOCK_NAMES[b.kind] ?? b.kind} ${range}`;
         return h(doc, "span", {
           class: `blk ${b.kind} ${b.lane}${b.missing ? " missing" : ""}`,
           "data-block": b.kind,
-          "data-tip": tip,
-          tabindex: "0",
-          "aria-label": tip,
+          ...tip(text),
           style: `left:${pct(s)};width:${pct(from + (e - s))}`,
         });
       }),
@@ -792,10 +717,10 @@ function outLine(ctx) {
     doc,
     "div",
     { class: "out", "data-out": "" },
-    h(doc, "span", { class: "out-l" }, "Out"),
+    h(doc, "span", { class: "out-l caps" }, "Out"),
     entries.map((entry) => {
       const person = resolve(ctx, entry.email, entry);
-      return h(doc, "span", { class: "out-p" }, pill(ctx, person), outLabel(entry, ctx.today).replace(/^out /, ""));
+      return h(doc, "span", { class: "out-p" }, teammate(ctx, person), outLabel(entry, ctx.today).replace(/^out /, ""));
     }),
   );
 }
@@ -811,8 +736,8 @@ function itemRow(ctx, item, ln, source, defaults) {
     ln,
     title: link(doc, item.url, { class: "tl" }, item.title),
     tags: [
-      item.tag ? badge(doc, item.tag, "warn") : null,
-      (item.people ?? []).map((email) => pill(ctx, resolve(ctx, email))),
+      item.tag ? chip(doc, item.tag, { tone: "warn" }) : null,
+      (item.people ?? []).map((email) => teammate(ctx, resolve(ctx, email))),
       item.who ? guest(doc, item.who) : null,
     ],
     meta: item.summary,
@@ -839,11 +764,11 @@ function linearSection(ctx) {
         ln: `C${++n}`,
         title: link(doc, issue.url, { class: "tl" }, issue.title),
         tags: [
-          link(doc, issue.url, { class: "lin" }, issue.id),
-          badge(doc, "New to you", "brand"),
-          issue.priority && PRIORITY_TONES[issue.priority] ? badge(doc, issue.priority, PRIORITY_TONES[issue.priority]) : null,
-          issue.by ? pill(ctx, resolve(ctx, issue.by)) : null,
-          issue.project ? h(doc, "span", { class: "ext" }, issue.project) : null,
+          linChip(doc, issue.id, issue.url),
+          chip(doc, "New to you", { tone: "brand" }),
+          issue.priority && PRIORITY_TONES[issue.priority] ? chip(doc, issue.priority, { tone: PRIORITY_TONES[issue.priority] }) : null,
+          issue.by ? teammate(ctx, resolve(ctx, issue.by)) : null,
+          issue.project ? note(doc, issue.project) : null,
         ],
         sig: cell(doc, "source", "issue", "dim", "Linear"),
         when: when(issue.when, ctx.today, ctx.tz),
@@ -855,7 +780,7 @@ function linearSection(ctx) {
       row(doc, {
         ln: `C${++n}`,
         title: link(doc, project.url, { class: "tl" }, project.name),
-        tags: [badge(doc, "Project update overdue", "warn")],
+        tags: [chip(doc, "Project update overdue", { tone: "warn" })],
         sig: cell(doc, "source", "issue", "dim", "Linear"),
         when: project.due ? monthDay(`${project.due}T12:00:00Z`) : "",
         act: action(doc, { tone: "warn", verb: "Post update", url: project.url, sub: "" }),
@@ -871,7 +796,7 @@ function linearSection(ctx) {
     children: [
       rows,
       stale.length
-        ? fold(
+        ? folded(
             doc,
             "linear-stale",
             false,
@@ -880,7 +805,7 @@ function linearSection(ctx) {
               const days = daysSince(issue.updated_at, ctx.today);
               return row(doc, {
                 title: link(doc, issue.url, { class: "tl" }, issue.title),
-                tags: [link(doc, issue.url, { class: "lin" }, issue.id), issue.status ? badge(doc, issue.status, "") : null],
+                tags: [linChip(doc, issue.id, issue.url), issue.status ? chip(doc, issue.status) : null],
                 sig: cell(doc, "source", "issue", "dim", "Linear"),
                 when: days == null ? "" : `${days}d`,
                 act: action(doc, { tone: "quiet", verb: "Open", url: issue.url, sub: "" }),
@@ -904,7 +829,7 @@ function header(doc, brief, today) {
     doc,
     "header",
     { class: "head" },
-    h(doc, "div", { class: "mark" }, logo(doc), h(doc, "span", null, "Form MR-1")),
+    h(doc, "div", { class: "mark" }, logo(doc), h(doc, "span", { class: "caps" }, "Form MR-1")),
     h(doc, "h1", null, "Morning return"),
     h(doc, "p", { class: "date" }, h(doc, "b", null, longDay(today)), [since, brief.login].filter(Boolean).join(" · ")),
   );
@@ -931,7 +856,7 @@ function totals(doc, brief, counts) {
         "a",
         { class: `tot${hot ? " hot" : ""}`, href, "data-total": key },
         h(doc, "span", { class: "n" }, known ? String(n) : "—"),
-        h(doc, "span", { class: "l" }, label),
+        h(doc, "span", { class: "l caps" }, label),
       );
     }),
   );
@@ -995,10 +920,10 @@ function myPrsSection(ctx) {
       numeral: "II",
       label: "Your pull requests",
       count: mine.length,
-      ageTip: "Days open",
+      columns: columnHeads(doc, "Days open"),
       children: [
         out,
-        drafts.length ? fold(doc, "drafts", false, h(doc, "b", null, plural(drafts.length, "draft")), draftsSorted.map((pr) => compactRow(ctx, pr, "Open"))) : null,
+        drafts.length ? folded(doc, "drafts", false, h(doc, "b", null, plural(drafts.length, "draft")), draftsSorted.map((pr) => compactRow(ctx, pr, "Open"))) : null,
       ],
     }),
   };
@@ -1039,11 +964,11 @@ export function renderBrief(doc, brief, { reviews = {}, people = {}, today, star
           numeral: "I",
           label: "To review",
           count: reviewPrs.length,
-          ageTip: "Days waiting on you",
+          columns: columnHeads(doc, "Days waiting on you"),
           children: [
             reviewPrs.map((pr) => reviewRow(ctx, pr, ++ctx.n)),
             team.length
-              ? fold(doc, "team", true, [h(doc, "b", null, `${team.length} more`), " requested from your teams"], team.map((pr) => compactRow(ctx, pr, "Review")))
+              ? folded(doc, "team", true, [h(doc, "b", null, `${team.length} more`), " requested from your teams"], team.map((pr) => compactRow(ctx, pr, "Review")))
               : null,
           ],
         }),
@@ -1063,7 +988,7 @@ export function renderBrief(doc, brief, { reviews = {}, people = {}, today, star
           numeral: "III",
           label: "Closed as stale",
           count: closed.length,
-          ageTip: "Days since closed",
+          columns: columnHeads(doc, "Days since closed"),
           children: closed.map((pr) => {
             const days = daysSince(pr.closed_at, today);
             return row(doc, {

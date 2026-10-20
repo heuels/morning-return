@@ -1,6 +1,8 @@
 /* A return form for the morning: forest header, a row of totals, then two
    ruled columns of lines (PRs left, the day right). Each line reads left to
-   right: number, what it is, status icons, age, one action. */
+   right: number, what it is, status icons, age, one action. The pieces every
+   line shares (chips, buttons, pills, folds) are one component each, built in
+   ui.js, with their variants as modifier classes. */
 :root {
   --ground: #eef2ef;
   --stock: #ffffff;
@@ -24,10 +26,21 @@
   --bad-bg: #fbe4df;
   --on-bad: #ffffff;
   --focus: #12804a;
+  --scrim: rgb(5 51 33 / 0.45);
+  --shadow: 0 18px 48px rgb(3 20 13 / 0.28);
+
+  /* A lightly tinted band: compact rows and the Linear group band. */
+  --wash: color-mix(in srgb, var(--chip) 50%, var(--stock));
 
   --sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --display: "Michelangelus", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+
+  /* Everything that sits in a row of tags is this tall: chips, people, buttons. */
+  --chip-h: 20px;
+  --chip-sans: 600 11.5px var(--sans);
+  --chip-mono: 500 12px var(--mono);
+  --radius: 3px;
 
   --gutter: max(clamp(16px, 3vw, 40px), env(safe-area-inset-left, 0px));
   --gutter-r: max(clamp(16px, 3vw, 40px), env(safe-area-inset-right, 0px));
@@ -45,7 +58,7 @@
     --chip: #123d2d;
     --forest: #0f4630;
     --guest: #2b3f36;
-  --on-guest: #d9e8df;
+    --on-guest: #d9e8df;
     --ok: #2cff8e;
     --ok-bg: #0f4a30;
     --warn: #f6b951;
@@ -110,7 +123,15 @@ a {
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: var(--radius);
+}
+
+/* The one small-caps label: section headings, totals, the form number, the
+   Out line and dialog field labels. Colour comes from where it sits. */
+.caps {
+  font: 600 12px var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 #app {
@@ -152,10 +173,7 @@ a {
   color: var(--on-forest);
 }
 
-.mark span {
-  font: 600 12px var(--sans);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.mark .caps {
   opacity: 0.75;
 }
 
@@ -217,7 +235,7 @@ a {
   font: 600 22px var(--mono);
   font-variant-numeric: tabular-nums;
   border: 1.5px solid var(--rule);
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 
 .tot.hot .n {
@@ -227,9 +245,6 @@ a {
 }
 
 .tot .l {
-  font: 600 12px var(--sans);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--ink-2);
 }
 
@@ -248,39 +263,33 @@ a {
   border-left: 1.5px solid var(--rule);
 }
 
+/* A section heading is one band whether or not it carries column icons:
+   numeral and label on the left, the count chip on the right. */
 .part h2 {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 36px;
   margin: 0;
-  padding: 9px 18px;
+  padding: 0 18px;
   background: var(--chip);
   border-top: 1.5px solid var(--rule);
   border-bottom: 1px solid var(--line);
-  font: 600 12px var(--sans);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+}
+
+.part h2 .lbl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.part h2 > .cnt {
+  margin-left: auto;
 }
 
 .col > :first-child h2,
 .col > .source-error:first-child {
   border-top: 0;
-}
-
-.pn {
-  min-width: 1.4em;
-  font: 600 12px var(--mono);
-  color: var(--ink-3);
-}
-
-.cnt {
-  margin-left: auto;
-  padding: 1px 7px;
-  font: 600 12px var(--mono);
-  font-variant-numeric: tabular-nums;
-  background: var(--forest);
-  color: var(--on-forest);
-  border-radius: 3px;
 }
 
 .source-error {
@@ -307,10 +316,16 @@ a {
 
 /* ---- the line ---- */
 
-.row {
+/* Rows and the PR headings share one column grid, so heading icons sit over
+   the row icons: number, body, --ic icon columns, age, action. */
+.row,
+.part h2.cols-h {
   --ic: 4;
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr) repeat(var(--ic), 26px) 46px 124px;
+}
+
+.row {
   min-height: 58px;
   align-items: stretch;
   border-top: 1px solid var(--line);
@@ -330,11 +345,21 @@ a {
   display: contents;
 }
 
-.ln {
-  padding: 13px 0 0 18px;
+/* Line numbers, section numerals and ages are the same small figures. */
+.ln,
+.pn,
+.when {
   font: 600 12px var(--mono);
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
+}
+
+.ln {
+  padding: 13px 0 0 18px;
+}
+
+.pn {
+  min-width: 1.4em;
 }
 
 .row.mtg .ln {
@@ -364,12 +389,6 @@ a {
 
 .t a:hover {
   text-decoration: underline;
-}
-
-.cnt2 {
-  margin-left: 6px;
-  font: 500 12px var(--mono);
-  color: var(--ink-3);
 }
 
 .tags {
@@ -447,15 +466,11 @@ a {
 .when {
   padding: 13px 10px 0 0;
   text-align: right;
-  font: 600 12px var(--mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
 }
 
 .when.late {
   color: var(--warn);
 }
-
 
 /* ---- the action ---- */
 
@@ -472,6 +487,7 @@ a {
   border-left: 1px solid var(--line);
 }
 
+/* Tighter tracking than .caps, so the longest verb fits the 124px column. */
 .act .v {
   display: inline-flex;
   align-items: center;
@@ -534,34 +550,84 @@ a.act:focus-visible {
   outline-offset: -3px;
 }
 
-/* ---- tags ---- */
+/* ---- chips: every tag, ref, size, segment and count is one of these ---- */
 
-.ref {
-  padding: 2px 6px;
-  font: 500 12px var(--mono);
-  color: var(--ink-2);
-  background: var(--chip);
-  border-radius: 3px;
-}
-
-.ref b {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.sz {
+/* Neutral grey by default. A tone recolours it; `mono` is for ids and
+   numbers, `outline` for facts beside the row's own ref, `sq` for a single
+   digit. A <b> inside is the part to read first. */
+.chip {
+  --chip-fg: var(--ink-2);
+  --chip-bg: var(--chip);
+  --chip-line: transparent;
+  --chip-em: var(--ink);
   display: inline-flex;
-  gap: 5px;
   align-items: center;
-  padding: 1px 6px;
-  font: 500 12px var(--mono);
-  font-variant-numeric: tabular-nums;
-  border: 1px solid var(--line);
-  border-radius: 3px;
+  justify-content: center;
+  gap: 5px;
+  min-height: var(--chip-h);
+  padding: 0 6px;
+  font: var(--chip-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  text-decoration: none;
+  color: var(--chip-fg);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-line);
+  border-radius: var(--radius);
 }
 
-.sz b {
-  font-weight: 700;
+.chip b {
+  font-weight: 600;
+  color: var(--chip-em);
+}
+
+.chip.mono {
+  font: var(--chip-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip.outline {
+  --chip-bg: transparent;
+  --chip-line: var(--line);
+}
+
+a.chip.outline:hover {
+  --chip-fg: var(--ink);
+  --chip-line: var(--ink-3);
+}
+
+.chip.sq {
+  min-width: var(--chip-h);
+  padding: 0;
+}
+
+.chip:is(.ok, .warn, .bad, .alarm, .brand) {
+  --chip-em: currentColor;
+}
+
+.chip.ok {
+  --chip-fg: var(--ok);
+  --chip-bg: var(--ok-bg);
+}
+
+.chip.warn {
+  --chip-fg: var(--warn);
+  --chip-bg: var(--warn-bg);
+}
+
+.chip.bad {
+  --chip-fg: var(--bad);
+  --chip-bg: var(--bad-bg);
+}
+
+.chip.alarm {
+  --chip-fg: var(--on-bad);
+  --chip-bg: var(--bad);
+}
+
+.chip.brand {
+  --chip-fg: var(--on-forest);
+  --chip-bg: var(--forest);
 }
 
 .sz .add {
@@ -572,72 +638,24 @@ a.act:focus-visible {
   color: var(--bad);
 }
 
-.b {
-  display: inline-flex;
-  gap: 5px;
-  align-items: center;
-  padding: 2px 7px;
-  font: 600 11.5px var(--sans);
-  color: var(--ink-2);
-  background: var(--chip);
-  border-radius: 3px;
-}
-
-.b.ok {
-  background: var(--ok-bg);
-  color: var(--ok);
-}
-
-.b.warn {
-  background: var(--warn-bg);
-  color: var(--warn);
-}
-
-.b.bad {
-  background: var(--bad-bg);
-  color: var(--bad);
-}
-
-.b.alarm {
-  background: var(--bad);
-  color: var(--on-bad);
-}
-
-.b.brand {
-  background: var(--forest);
-  color: var(--on-forest);
-}
-
 .stack {
   display: inline-flex;
   gap: 2px;
 }
 
-.seg {
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  font: 600 11px var(--mono);
-  text-decoration: none;
+/* A quiet aside: an organisation after its people, a project, "3 PRs". */
+.note {
+  font-size: 12.5px;
+  font-weight: 400;
   color: var(--ink-2);
-  background: var(--chip);
-  border-radius: 3px;
 }
 
-.seg.go {
-  background: var(--ok-bg);
-  color: var(--ok);
+.note.mono {
+  font: 500 12px var(--mono);
 }
 
-.seg.fix {
-  background: var(--bad-bg);
-  color: var(--bad);
-}
-
-.seg.warn {
-  background: var(--warn-bg);
-  color: var(--warn);
+.t .note {
+  margin-left: 6px;
 }
 
 /* ---- people: one circle, in a pill or a pile ---- */
@@ -645,8 +663,8 @@ a.act:focus-visible {
 .av {
   display: inline-grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: var(--chip-h);
+  height: var(--chip-h);
   flex: none;
   border-radius: 50%;
   background: var(--mint);
@@ -655,8 +673,8 @@ a.act:focus-visible {
 }
 
 .av img {
-  width: 20px;
-  height: 20px;
+  width: var(--chip-h);
+  height: var(--chip-h);
   display: block;
   border-radius: 50%;
   object-fit: cover;
@@ -667,20 +685,21 @@ a.act:focus-visible {
   letter-spacing: 0.02em;
 }
 
+/* Teammates are forest with their face; guests are grey with only a name. */
 .pp {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: var(--chip-h);
   padding-right: 9px;
-  font: 600 11.5px var(--sans);
+  font: var(--chip-sans);
   color: var(--on-forest);
   background: var(--forest);
   border-radius: 999px;
 }
 
 .pp.guest {
-  height: 20px;
-  padding: 0 9px;
+  padding-left: 9px;
   color: var(--on-guest);
   background: var(--guest);
 }
@@ -692,11 +711,6 @@ a.act:focus-visible {
 
 .pile-face + .pile-face {
   margin-left: -4px;
-}
-
-.ext {
-  font-size: 12.5px;
-  color: var(--ink-2);
 }
 
 /* ---- tooltips ---- */
@@ -720,7 +734,7 @@ a.act:focus-visible {
   text-transform: none;
   color: var(--stock);
   background: var(--ink);
-  border-radius: 3px;
+  border-radius: var(--radius);
   pointer-events: none;
 }
 
@@ -730,21 +744,34 @@ a.act:focus-visible {
   bottom: auto;
 }
 
-/* ---- folds and review findings ---- */
+/* ---- folds: a section's folded rows, and a review's findings ---- */
 
-.acc {
-  border-top: 1px solid var(--line);
-}
-
-.acc > summary,
-.rv > summary {
+.fold > summary {
   list-style: none;
   cursor: pointer;
 }
 
-.acc > summary::-webkit-details-marker,
-.rv > summary::-webkit-details-marker {
+.fold > summary::-webkit-details-marker {
   display: none;
+}
+
+.fold > summary > .i {
+  width: 12px;
+  height: 12px;
+}
+
+.fold[open] > summary > .i {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fold > summary > .i {
+    transition: transform 0.15s ease-out;
+  }
+}
+
+.acc {
+  border-top: 1px solid var(--line);
 }
 
 .acc > summary {
@@ -764,31 +791,13 @@ a.act:focus-visible {
   min-width: 0;
 }
 
-.acc > summary .i,
-.rv > summary .i {
-  width: 12px;
-  height: 12px;
-}
-
 .acc[open] > summary {
   border-bottom: 1px dashed var(--line);
 }
 
-.acc[open] > summary .i,
-.rv[open] > summary .i {
-  transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .acc > summary .i,
-  .rv > summary .i {
-    transition: transform 0.15s ease-out;
-  }
-}
-
 .row.compact {
   min-height: 46px;
-  background: color-mix(in srgb, var(--chip) 45%, var(--stock));
+  background: var(--wash);
 }
 
 .row.compact .t {
@@ -815,7 +824,7 @@ a.act:focus-visible {
   justify-self: start;
 }
 
-.b.review .sev {
+.rv > summary .sev {
   padding: 0 4px;
   font: 600 10.5px var(--mono);
   font-style: normal;
@@ -823,8 +832,8 @@ a.act:focus-visible {
   border-radius: 2px;
 }
 
-.b.review .sev.critical,
-.b.review .sev.high {
+.rv > summary .sev.critical,
+.rv > summary .sev.high {
   background: var(--bad);
   color: var(--on-bad);
 }
@@ -883,7 +892,6 @@ a.loc:hover {
   color: var(--warn);
 }
 
-
 /* ---- empty state ---- */
 
 .empty-body {
@@ -901,12 +909,9 @@ a.loc:hover {
   color: var(--ink-2);
 }
 
-
 /* ---- PR section headings carry the column icons ---- */
 
 .part h2.cols-h {
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) repeat(4, 26px) 46px 124px;
   align-items: center;
   gap: 0;
   padding: 0;
@@ -914,10 +919,7 @@ a.loc:hover {
 
 .cols-h .lbl {
   grid-column: 1 / 3;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 0 9px 18px;
+  padding-left: 18px;
 }
 
 .cols-h .ic {
@@ -931,27 +933,11 @@ a.loc:hover {
   padding-right: 10px;
 }
 
-.cntc {
-  display: flex;
-  justify-content: flex-end;
-  padding-right: 18px;
+.part h2.cols-h > .cnt {
+  margin-right: 18px;
 }
 
 /* ---- Linear: a chip on a PR, and a band over PRs sharing an issue ---- */
-
-.lin {
-  padding: 1px 6px;
-  font: 500 11.5px var(--mono);
-  color: var(--ink-2);
-  text-decoration: none;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-}
-
-a.lin:hover {
-  color: var(--ink);
-  border-color: var(--ink-3);
-}
 
 .grp {
   display: flex;
@@ -961,7 +947,7 @@ a.lin:hover {
   padding: 8px 18px;
   font-size: 13px;
   color: var(--ink-2);
-  background: color-mix(in srgb, var(--chip) 55%, var(--stock));
+  background: var(--wash);
   border-top: 1px solid var(--line);
   border-bottom: 1px dashed var(--line);
 }
@@ -977,59 +963,69 @@ a.lin:hover {
   color: var(--ink);
 }
 
-.sib {
-  padding: 1px 6px;
-  font: 500 11.5px var(--mono);
-  text-decoration: none;
-  color: var(--ink-2);
-  background: var(--chip);
-  border-radius: 3px;
-}
-
-.sib.ok {
-  color: var(--ok);
-  background: var(--ok-bg);
-}
-
-.sib.bad {
-  color: var(--bad);
-  background: var(--bad-bg);
-}
-
 .grp + .row {
   border-top: 0;
 }
 
-/* ---- Claude Code session buttons ---- */
+/* ---- buttons: `sm` in a row of chips, the default size in dialogs ---- */
 
-.cc,
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 8px;
-  font: 600 11.5px var(--sans);
+  padding: 7px 12px;
+  font: 600 13px var(--sans);
   color: var(--ink);
   background: var(--stock);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius);
   cursor: pointer;
   text-decoration: none;
 }
 
-.cc .i,
 .btn .i {
   width: 13px;
   height: 13px;
 }
 
-.cc:hover,
 .btn:hover {
   border-color: var(--ink-3);
 }
 
-.cc.quiet {
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn.sm {
+  min-height: var(--chip-h);
+  padding: 0 8px;
+  font: var(--chip-sans);
+}
+
+.btn.primary {
+  color: var(--on-forest);
+  background: var(--forest);
+  border-color: var(--forest);
+}
+
+.btn.quiet {
   color: var(--ink-2);
+}
+
+.btn.plain {
+  color: inherit;
+  background: none;
+  border-color: transparent;
+}
+
+.btn.icon {
+  padding: 3px;
+}
+
+.btn.icon .i {
+  width: 15px;
+  height: 15px;
 }
 
 .rv-actions {
@@ -1109,9 +1105,6 @@ a.lin:hover {
 }
 
 .out-l {
-  font: 600 11px var(--sans);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--ink-3);
 }
 
@@ -1136,7 +1129,7 @@ a.lin:hover {
   background: var(--stock);
   border: 1.5px solid var(--rule);
   border-radius: 4px;
-  box-shadow: 0 18px 48px rgb(3 20 13 / 0.28);
+  box-shadow: var(--shadow);
 }
 
 .dlg.review {
@@ -1144,7 +1137,7 @@ a.lin:hover {
 }
 
 .dlg::backdrop {
-  background: rgb(5 51 33 / 0.45);
+  background: var(--scrim);
 }
 
 .dlg-head {
@@ -1165,17 +1158,6 @@ a.lin:hover {
   font: 600 15px var(--sans);
 }
 
-.x {
-  display: grid;
-  place-items: center;
-  padding: 4px;
-  color: inherit;
-  background: none;
-  border: 0;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
 .dlg-body {
   display: grid;
   gap: 8px;
@@ -1184,9 +1166,6 @@ a.lin:hover {
 
 .dlg-body label {
   margin-top: 6px;
-  font: 600 11.5px var(--sans);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--ink-2);
 }
 
@@ -1198,7 +1177,7 @@ a.lin:hover {
   color: var(--ink);
   background: var(--stock);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 
 .dlg-body textarea {
@@ -1218,27 +1197,6 @@ a.lin:hover {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 6px;
-}
-
-.btn {
-  padding: 7px 12px;
-  font-size: 13px;
-}
-
-.btn.primary {
-  color: var(--on-forest);
-  background: var(--forest);
-  border-color: var(--forest);
-}
-
-.btn.quiet {
-  background: none;
-  border-color: transparent;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .dlg-status {
@@ -1294,7 +1252,7 @@ a.lin:hover {
   overflow-x: auto;
   padding: 10px 12px;
   background: var(--chip);
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 
 .md pre code {
@@ -1453,9 +1411,11 @@ a.lin:hover {
     border-top: 1px solid var(--line);
   }
 
+  /* Headings drop their column icons and line up with the narrower rows. */
+  .part h2,
   .part h2.cols-h {
     display: flex;
-    padding: 9px 16px;
+    padding: 0 16px;
   }
 
   .cols-h .sig,
@@ -1465,6 +1425,10 @@ a.lin:hover {
 
   .cols-h .lbl {
     padding: 0;
+  }
+
+  .part h2.cols-h > .cnt {
+    margin-right: 0;
   }
 
   .grp {

@@ -18,8 +18,10 @@ const TODAY = "2026-10-20";
 
 const HARNESS = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/styles.css"><body><script type="module">
 import { renderBrief, renderEmpty } from "/render.js";
+import * as ui from "/ui.js";
 window.renderBrief = renderBrief;
 window.renderEmpty = renderEmpty;
+window.ui = ui;
 window.__ready = true;
 </script></body>`;
 
@@ -629,4 +631,98 @@ test("teammates' faces keep their ring in a pile, the same as in a pill", async 
   const inPill = await ring('[data-meeting="1"] .pp[data-person="ana@taxwire.com"] .av');
   assert.equal(inPile, inPill);
   assert.notEqual(inPile, "none");
+});
+
+// ---- the shared pieces in ui.js ---------------------------------------------------
+
+test("a chip is the same element in every tone and face; only its colours change", async () => {
+  const page = await openHarness();
+  const looks = await page.evaluate(() => {
+    const box = Object.assign(document.createElement("div"), { className: "tags" });
+    document.body.append(box);
+    return [undefined, "ok", "warn", "bad", "alarm", "brand"].flatMap((tone) =>
+      [false, true].map((mono) => {
+        const el = box.appendChild(window.ui.chip(document, "APP-1", { tone, mono }));
+        const c = getComputedStyle(el);
+        return {
+          name: `${tone ?? "neutral"}${mono ? " mono" : ""}`,
+          shape: { tag: el.tagName, height: el.getBoundingClientRect().height, radius: c.borderRadius, padding: c.padding, border: c.borderTopWidth },
+          bg: c.backgroundColor,
+        };
+      }),
+    );
+  });
+  for (const look of looks) assert.deepEqual(look.shape, looks[0].shape, look.name);
+  assert.equal(looks[0].shape.height, 20);
+  assert.equal(new Set(looks.map((l) => l.bg)).size, 6);
+});
+
+test("a chip links only to https, and opens it in a new tab", async () => {
+  const page = await openHarness();
+  const made = await page.evaluate(() =>
+    [undefined, "javascript:alert(1)", "http://example.com", "https://linear.app/x"].map((href) => {
+      const el = window.ui.chip(document, "x", { href });
+      return [el.tagName, el.getAttribute("href"), el.getAttribute("rel"), el.getAttribute("target")];
+    }),
+  );
+  assert.deepEqual(made, [
+    ["SPAN", null, null, null],
+    ["SPAN", null, null, null],
+    ["SPAN", null, null, null],
+    ["A", "https://linear.app/x", "noopener noreferrer", "_blank"],
+  ]);
+});
+
+test("everything in a row of tags stands at the chip's height", async () => {
+  const [brief, reviews] = withReview();
+  const page = await render(brief, { reviews, sessions: true });
+  await page.$$eval("details", (folds) => folds.forEach((d) => (d.open = true)));
+  const heights = await page.$$eval(
+    ".tags .chip, .tags .pp, .tags .btn, .tags .pile .av, .grp .chip, .rv > summary, .rv-actions .btn",
+    (els) => els.map((e) => [e.className, e.getBoundingClientRect().height]),
+  );
+  assert.ok(heights.length > 40, `only ${heights.length} pieces found`);
+  for (const [name, height] of heights) assert.equal(height, 20, name);
+});
+
+test("buttons are one component: small in rows, full size in dialogs, plain where they sit on colour", async () => {
+  const page = await render(clone(), { sessions: true });
+  assert.match(await page.locator('[data-key="203"] [data-session]').getAttribute("class"), /^btn sm$/);
+  await page.locator('[data-key="203"] [data-session]').click();
+  const dialog = page.locator("[data-session-dialog]");
+  const classes = await dialog.locator("button, a[data-session-link]").evaluateAll((els) => els.map((e) => e.className));
+  assert.deepEqual(classes, ["btn plain icon", "btn primary", "btn", "btn plain"]);
+  const colour = (sel) => dialog.locator(sel).evaluate((e) => getComputedStyle(e).color);
+  assert.equal(await colour(".dlg-head .btn"), await colour(".dlg-head"));
+  await dialog.locator(".dlg-head .btn").click();
+  assert.equal(await dialog.evaluate((d) => d.open), false);
+});
+
+test("section headings are one band, with or without column icons, and keep the count at the right edge", async () => {
+  for (const width of [1280, 390]) {
+    const page = await render(clone(), { viewport: { width, height: 900 } });
+    const bands = await page.$$eval("[data-section] > h2", (els) =>
+      els.map((h2) => {
+        const band = h2.getBoundingClientRect();
+        return [h2.parentElement.dataset.section, band.height, Math.round(band.right - h2.querySelector(".cnt").getBoundingClientRect().right)];
+      }),
+    );
+    assert.equal(bands.length, 7);
+    for (const [name, height, inset] of bands) {
+      assert.deepEqual([height, inset], [bands[0][1], bands[0][2]], `${name} at ${width}px`);
+    }
+  }
+});
+
+test("people are one pill: a teammate with their face, a guest in grey named on hover", async () => {
+  const page = await openHarness();
+  const [teammate, guest] = await page.evaluate(() => {
+    const face = window.ui.avatar(document, { photo: "https://evil.example/x.png", initials: "AL", label: "Ana Lima" });
+    return [
+      window.ui.pill(document, { name: "Ana", face, attrs: { "data-person": "ana@taxwire.com" } }),
+      window.ui.pill(document, { name: "Dana Park", guest: true, label: "Dana Park · Acme" }),
+    ].map((el) => ({ cls: el.className, text: el.textContent, tip: el.dataset.tip ?? null, imgs: el.querySelectorAll("img").length, external: el.hasAttribute("data-external") }));
+  });
+  assert.deepEqual(teammate, { cls: "pp", text: "ALAna", tip: null, imgs: 0, external: false });
+  assert.deepEqual(guest, { cls: "pp guest", text: "Dana Park", tip: "Dana Park · Acme", imgs: 0, external: true });
 });
