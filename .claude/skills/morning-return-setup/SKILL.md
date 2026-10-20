@@ -94,6 +94,8 @@ Paths below are relative to the repository root.
   run picks it up. A Routine on the full prompt needs setup steps 4 and 5
   again.
 - **The page** (`page/`): setup step 3.
+- **A pass's tools, model or effort**: change `parts.md`, run
+  `python3 .claude/skills/morning-return-setup/write_agents.py`, push.
 - **The review prompt**: every run reads `/pr-review`'s prompt from
   taxwire-skills' `pr-review.sh`. `review-prompt.md` is the copy it falls
   back on; `tests/test_reviews.py` flags it when it drifts from
@@ -106,6 +108,9 @@ Paths below are relative to the repository root.
   Routine. Add it on the Routine's page in claude.ai.
 - **A repo is missing**: the run's `notes` say `add_repo` refused it; the
   user's GitHub access to that repo decides.
+- **A source fails every day after a connector was reconnected**: its new
+  connector id isn't in `parts.md`'s Tools table, so the pass's agent has no
+  tools for it. See `docs/routine-environment.md`.
 - **The page says "No brief yet"**: check the Routine's `last_run` with
   `get_trigger`, then that session with `get_session`.
 - **A review never appears**: the run's `notes` say whether it was queued past

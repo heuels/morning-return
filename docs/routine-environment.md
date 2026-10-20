@@ -19,6 +19,13 @@ here stops matching what a run does.
   such tool available"). A name that doesn't exist in the session is dropped
   without an error, and `ToolSearch` isn't granted even when listed, so a
   defined agent can only use tools named exactly.
+- A defined agent can call a connector tool named exactly by its connector
+  id, including one the main session only loads on demand (Gmail's
+  `list_labels` worked). The display-name spelling of the same tool was
+  dropped there.
+- Naming a whole server (`mcp__<connector id>`) grants every tool on it,
+  write tools included: 76 Linear tools, among them `save_issue` and
+  `merge_diff`. The run's agents therefore list read tools one by one.
 - A tool-limited agent starts small: about 5K tokens of context, against
   about 74K for `general-purpose`, which carries every tool's definition.
 - Three subagents started in one message ran at the same time.
@@ -41,7 +48,10 @@ The ids are the `connector_uuid`s stored on the Morning brief Routine:
 | sessions | (the environment's) | `mcp__claude-code-remote__<tool>` |
 
 `ArtifactData` keeps its plain name. Reconnecting a connector in claude.ai
-may give it a new id; the run's agent definitions then need the new one.
+may give it a new id. The run's agents would then silently lose that
+connector's tools, its passes would fail, and the brief would show the
+source as failed: put the new id in `parts.md`'s Tools table and run
+`write_agents.py`.
 
 ## The Routine itself
 

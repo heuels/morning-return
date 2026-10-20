@@ -117,8 +117,13 @@ def handoff_shapes(text: str) -> dict[str, str]:
     return {m[1]: m[2].strip() for m in re.finditer(r"^- `([\w-]+)`: (.+)$", section, re.MULTILINE)}
 
 
-def tools_by_source(text: str) -> dict[str, set[str]]:
-    return {row[0]: _names(row[1]) for row in _rows(text, "## Tools")}
+def tools_by_source(text: str) -> dict[str, list[str]]:
+    """Each source's exact tool names, every tool under each of its servers."""
+    tools = {}
+    for source, servers, names in _rows(text, "## Tools"):
+        servers, names = re.findall(r"`([^`]+)`", servers), re.findall(r"`([^`]+)`", names)
+        tools.setdefault(source, []).extend(f"mcp__{server}__{name}" for name in names for server in servers)
+    return tools
 
 
 def _keys(path: str, value, allowed: set[str]) -> list[str]:

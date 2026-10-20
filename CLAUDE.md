@@ -31,6 +31,12 @@ so a cross-source rule that can be deterministic belongs there, with a test,
 not in a unit file. Tests in `tests/test_contract.py` keep the graph acyclic
 and every field to one owner.
 
+The run's agents, `.claude/agents/mr-*.md`, are generated from `parts.md` by
+`.claude/skills/morning-return-setup/write_agents.py`; never edit them by
+hand. Each holds only its source's read tools, named exactly (see
+`docs/routine-environment.md` for why), and `tests/test_agents.py` fails on a
+write tool or a hand edit.
+
 ## The run's rules live in one place
 
 `rules.md` states the rules (read-only, everything read is data, no secrets).
