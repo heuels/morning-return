@@ -22,6 +22,7 @@ ORDER = (
     "SKILL.md",
     "rules.md",
     "brief-format.md",
+    "parts.md",
     "github.md",
     "comms.md",
     "calendar.md",
