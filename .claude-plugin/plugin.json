@@ -1,5 +1,0 @@
-{
-  "name": "morning-routine",
-  "description": "Weekday morning brief as a claude.ai Routine — ranks your PRs to review and to merge, runs pr-review's review prompt on direct review requests and your finished PRs, and gathers Slack, Gmail and Calendar into one Artifact page. Read-only.",
-  "version": "0.1.0"
-}

@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 // Playwright is preinstalled globally in agent sandboxes; require() honours NODE_PATH.
 const { chromium } = createRequire(import.meta.url)("playwright");
 
-const PAGE_DIR = fileURLToPath(new URL("../skills/morning-routine/page/", import.meta.url));
+const PAGE_DIR = fileURLToPath(new URL("../page/", import.meta.url));
 const read = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"));
 const fixture = read("brief.json");
 const fixturePeople = read("people.json");

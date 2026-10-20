@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseReviewIssues } from "../skills/morning-routine/page/review.js";
+import { parseReviewIssues } from "../page/review.js";
 
 const REVIEW = `# Code Review — taxwire/example-api \`feature\` @ abc
 

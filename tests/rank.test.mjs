@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { groupStacks, nextStep, rankMine, rankReviewPrs } from "../skills/morning-routine/page/rank.js";
+import { groupStacks, nextStep, rankMine, rankReviewPrs } from "../page/rank.js";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/brief.json", import.meta.url), "utf8"));
 

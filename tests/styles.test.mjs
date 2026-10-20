@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 // (bare :root, the dark media query, and [data-theme="dark"]), and the two dark
 // blocks say the same thing, so a viewer's pick and the system's agree.
 
-const CSS = readFileSync(new URL("../skills/morning-routine/page/styles.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const CSS = readFileSync(new URL("../page/styles.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
 // The text between the brace after `opener` and its matching close brace.
 function blockAfter(css, opener) {
