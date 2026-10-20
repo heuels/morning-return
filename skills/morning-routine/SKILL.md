@@ -53,12 +53,16 @@ Paths below are relative to this file's directory.
    - Existing: `update_trigger` with the Routine's id and the new `prompt`
      only.
 
-   Some organizations refuse the `connectors` parameter. Then create the
-   Routine without it. Its sessions get no Slack, Gmail or Calendar tools,
-   and the page shows "Couldn't reach …" for those three. Tell the user to
-   open the Routine on claude.ai's Routines page and add the Slack, Gmail and
-   Google Calendar connectors there. If the result warns that a connector
-   couldn't be stored, pass on the warning the same way.
+   If `create_trigger` refuses `connectors`, or warns that it stored none,
+   don't create the Routine from here. A Routine created this way also gets
+   no GitHub tools, no `list_repos`/`add_repo` and no `list_sessions`, so its
+   runs gather nothing. Instead, give the user the assembled prompt file and
+   have them create the Routine on claude.ai's Routines page, with the same
+   name and schedule, the Slack, Gmail and Google Calendar connectors, and the
+   `taxwire/*` repositories they want covered selected as its repositories.
+   Then continue with step 6 on that Routine. Its runs still can't list
+   Claude sessions, so the page notes that source as unavailable, and drafts
+   are reviewed only once they're marked ready for review.
 6. **Run it once.** `fire_trigger` the Routine, then **Verify**.
 
 ## Verify
