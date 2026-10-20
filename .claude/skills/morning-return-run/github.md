@@ -1,4 +1,4 @@
-# GitHub (`sources.github`)
+# GitHub, base pass (`sources.github`)
 
 Fills `my_prs`, `review_prs`, `team_review_prs` and `stale_closed`.
 
@@ -7,13 +7,12 @@ Fills `my_prs`, `review_prs`, `team_review_prs` and `stale_closed`.
 If this session has `list_repos` and `add_repo`: `list_repos` with
 `query: "taxwire/"` and `limit: 200`, keep the `taxwire/*` repos whose last
 push is within the last 30 days, and `add_repo` each one with
-`access: "read"`. A repo it refuses goes in `notes` and is skipped. Keep the
-`add_repo` result: it says how to clone the repo. If this session doesn't have
-them, use the repositories the Routine was set up with (the ones already
-checked out or attached to this session). Every GitHub search below covers
-only these repos: split them into groups so each query, with its
-`repo:owner/name` qualifiers, stays under 250 characters, run the search once
-per group, and merge the results.
+`access: "read"`. A repo it refuses goes in `notes` and is skipped. Each repo
+and the clone URL `add_repo` gave go in the `repos` hand-off. If this session
+doesn't have them, use the repositories already attached to this session.
+Every GitHub search below covers only these repos: split them into groups so
+each query, with its `repo:owner/name` qualifiers, stays under 250
+characters, run the search once per group, and merge the results.
 
 ## Pull requests
 
@@ -51,6 +50,9 @@ For each PR from searches 1 and 4, call `pull_request_read`:
   `first_unresolved_url`, the first such thread's first comment `html_url`.
 - `get_files` (all pages) → `reviewable_additions` and `reviewable_deletions`:
   the sums over files the brief format's reviewable-lines rule keeps.
+- `get_commits` → for the PR's author and each requested reviewer who has
+  commits on it, every distinct author `name` and `email` on their commits,
+  into `commit_identities` under their login.
 
 For each PR from search 5, call only `get`; set `ci`, `review_decision`,
 `unresolved_threads`, `reviewable_additions` and `reviewable_deletions` to
@@ -61,6 +63,10 @@ also found gets `stale: true` and `stale_closes_on` = its `updated_at` date + 7
 days; every other PR gets `stale: false` and `stale_closes_on: null`.
 `linear_id` is the first Linear identifier (`[A-Z]+-\d+`, a team key Linear
 knows) in the branch name, then the title, then a `Closes`, `Fixes`, `Part of`
-or `Linear:` line in the body; otherwise `null`. `author_email` and the
-reviewers' emails come from people.md. `blocking_signal` and `review_id` start
-as `null` (comms.md and reviews.md fill them).
+or `Linear:` line in the body; otherwise `null`. `author_email`, each
+reviewer's `email`, `blocking_signal` and `review_id` are `null`: the merge
+fills them. Every PR in the four lists also goes in `pr_keys`.
+
+## Output
+
+Write `github.json`. Reads no other part.

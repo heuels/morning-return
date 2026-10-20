@@ -28,11 +28,16 @@ ORDER = (
     "brief-format.md",
     "parts.md",
     "github.md",
-    "comms.md",
+    "sessions.md",
+    "slack.md",
+    "gmail.md",
     "calendar.md",
-    "meeting-prep.md",
     "linear.md",
-    "people.md",
+    "slack-enrich.md",
+    "gmail-enrich.md",
+    "linear-enrich.md",
+    "meeting-prep.md",
+    "github-enrich.md",
     "reviews.md",
 )
 REVIEW_PROMPT = "review-prompt.md"
@@ -58,7 +63,8 @@ line instead of improvising the run.
 
 FULL_HEADER = """This prompt carries every file of the morning-return run, each under a
 "File:" heading. Where one file names another (rules.md, github.md and so on),
-it means that file's section below. Start with SKILL.md.
+it means that file's section below, and scripts/<name> means the script
+under "File: scripts/<name>". Start with SKILL.md.
 """
 
 
@@ -83,14 +89,23 @@ def stub(*, github_login: str, timezone: str, artifact_url: str) -> str:
     return STUB.format(github_login=github_login, timezone=timezone, artifact_url=artifact_url)
 
 
-def full(files: dict[str, str], review_prompt: str, *, github_login: str, timezone: str, artifact_url: str) -> str:
-    """Join the run's files in ORDER, values filled, the review prompt last."""
+def full(
+    files: dict[str, str],
+    review_prompt: str,
+    *,
+    github_login: str,
+    timezone: str,
+    artifact_url: str,
+    scripts: dict[str, str] | None = None,
+) -> str:
+    """Join the run's files in ORDER, values filled, then its scripts as they are, the review prompt last."""
     check(github_login=github_login, artifact_url=artifact_url)
     found = {name for text in files.values() for name in PLACEHOLDER_RE.findall(text)}
     if unknown := found - PLACEHOLDERS:
         raise ValueError(f"unknown placeholders in the run: {', '.join(sorted(unknown))}")
     values = {"github_login": github_login, "timezone": timezone, "artifact_url": artifact_url}
     sections = [f"# File: {name}\n\n{fill(strip_front_matter(files[name]), **values).strip()}" for name in ORDER]
+    sections += [f"# File: scripts/{name}\n\n```python\n{text}```" for name, text in sorted((scripts or {}).items())]
     sections.append(f"# File: {REVIEW_PROMPT}\n\n{review_prompt.strip()}")
     settings = f"Page: {artifact_url}\nGitHub login: {github_login}\nTimezone: {timezone}\n"
     return f"{settings}\n{FULL_HEADER}\n---\n\n" + "\n\n---\n\n".join(sections) + "\n"
@@ -124,7 +139,8 @@ def main(argv: list[str] | None = None) -> int:
             prompt = stub(**values)
         else:
             files = {name: (RUN_DIR / name).read_text() for name in ORDER}
-            prompt = full(files, (RUN_DIR / REVIEW_PROMPT).read_text(), **values)
+            scripts = {path.name: path.read_text() for path in sorted((RUN_DIR / "scripts").glob("*.py"))}
+            prompt = full(files, (RUN_DIR / REVIEW_PROMPT).read_text(), scripts=scripts, **values)
     except (OSError, ValueError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 1

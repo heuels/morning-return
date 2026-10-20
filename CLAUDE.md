@@ -15,9 +15,21 @@ publish the page, update the Routine or fire it without the user asking.
 ## The contract
 
 `brief-format.md` is the one contract between the run and the page. A field
-changes in all of these at once: `brief-format.md`, the run file that fills
-it, the page, `tests/fixtures/brief.json` and the tests. Older briefs stay in
-the page's database, so the page keeps rendering the previous shape.
+changes in all of these at once: `brief-format.md`, its owner in `parts.md`,
+the unit file that fills it, the page, `tests/fixtures/brief.json` and the
+tests. Older briefs stay in the page's database, so the page keeps rendering
+the previous shape. The scripts read both tables; never copy a field list
+into code.
+
+## The passes
+
+`parts.md` is the one list of the run's passes. Each holds one source's
+tools, reads only parts from earlier waves, and writes one part file. A
+source has at most two passes, and an enrichment pass owns no brief field.
+`scripts/merge_brief.py` is the only place a hand-off becomes a brief field,
+so a cross-source rule that can be deterministic belongs there, with a test,
+not in a unit file. Tests in `tests/test_contract.py` keep the graph acyclic
+and every field to one owner.
 
 ## The run's rules live in one place
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Write a `people` document for each teammate the brief names who needs one.
 
-Usage: people_docs.py --scratch <dir> --existing <dir> --versions <file> --now <iso> [--brief <file>]
+Usage:
+  people_docs.py --scratch <dir> --existing <dir> --versions <file> --now <iso> [--brief <file>]
+  people_docs.py --existing <dir> --now <iso> --list-fresh
 
 A teammate needs a document when theirs is missing or more than 30 days old.
 Names and photo links come from the Slack enrichment's `people_profiles`
@@ -14,6 +16,9 @@ a photo that can't be fetched leaves `photo: null`.
 version that listing showed, which every rewrite is pinned to. A document
 without a known version is left as it is. The entries are added to
 <scratch>/writes.json for the orchestrator's batch.
+
+--list-fresh prints the emails whose documents are fresh, so the Slack
+enrichment can skip looking them up.
 
 This is the one script that uses the network.
 """
@@ -95,6 +100,12 @@ def _due(existing_dir, email, now):
         return True
 
 
+def fresh(existing_dir, now):
+    """Emails whose documents are recent enough to leave alone."""
+    paths = sorted((existing_dir / "people").glob("*.json"))
+    return [path.stem for path in paths if not _due(existing_dir, path.stem, _when(now))]
+
+
 def write_people(scratch, brief, existing_dir, versions, now, fetch=default_fetch):
     enrich = contract.read_json(scratch / "parts" / "slack-enrich.json")
     profiles = ((enrich or {}).get("handoffs") or {}).get("people_profiles") or {}
@@ -117,12 +128,18 @@ def write_people(scratch, brief, existing_dir, versions, now, fetch=default_fetc
 
 def main(argv=None, fetch=default_fetch):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--scratch", type=Path, required=True)
+    parser.add_argument("--scratch", type=Path)
     parser.add_argument("--existing", type=Path, required=True)
-    parser.add_argument("--versions", type=Path, required=True)
+    parser.add_argument("--versions", type=Path)
     parser.add_argument("--now", required=True)
     parser.add_argument("--brief", type=Path)
+    parser.add_argument("--list-fresh", action="store_true", help="print the emails whose documents are fresh, then exit")
     args = parser.parse_args(argv)
+    if args.list_fresh:
+        print("\n".join(fresh(args.existing, args.now)))
+        return 0
+    if not (args.scratch and args.versions):
+        parser.error("--scratch and --versions are required to write documents")
     brief = contract.read_json(args.brief or args.scratch / "brief.json") or {}
     versions = contract.read_json(args.versions) or {}
     writes = write_people(args.scratch, brief, args.existing, versions, args.now, fetch)

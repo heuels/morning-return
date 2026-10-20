@@ -7,6 +7,10 @@ REPO = Path(__file__).resolve().parents[1]
 SETUP_DIR = REPO / ".claude" / "skills" / "morning-return-setup"
 RUN_DIR = REPO / ".claude" / "skills" / "morning-return-run"
 
+_contract_spec = importlib.util.spec_from_file_location("contract", RUN_DIR / "scripts" / "contract.py")
+contract = importlib.util.module_from_spec(_contract_spec)
+_contract_spec.loader.exec_module(contract)
+
 _spec = importlib.util.spec_from_file_location("assemble_prompt", SETUP_DIR / "assemble_prompt.py")
 assemble_prompt = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(assemble_prompt)
@@ -20,6 +24,10 @@ You are a reviewer.
 Use @@HEAD_SHA@@.
 PROMPT_EOF
 """
+
+
+def _scripts():
+    return {p.name: p.read_text() for p in sorted((RUN_DIR / "scripts").glob("*.py"))}
 
 
 def _files(**overrides):
@@ -76,6 +84,13 @@ class FullTest(unittest.TestCase):
             body = assemble_prompt.fill(assemble_prompt.strip_front_matter((RUN_DIR / name).read_text()), **VALUES)
             self.assertIn(body.strip(), out, name)
 
+    def test_full_carries_every_script_verbatim(self):
+        out = assemble_prompt.full(_files(), "REVIEW TEXT", scripts=_scripts(), **VALUES)
+        self.assertTrue(_scripts())
+        for name, text in _scripts().items():
+            self.assertIn(f"# File: scripts/{name}\n\n```python\n{text}```", out)
+        self.assertTrue(out.rstrip().endswith("REVIEW TEXT"))
+
     def test_leaves_the_review_prompt_untouched(self):
         review = "x @@HEAD_SHA@@ {{NOT_OURS}}"
         self.assertIn(review, assemble_prompt.full(_files(), review, **VALUES))
@@ -94,6 +109,26 @@ class RunFilesTest(unittest.TestCase):
         skill = (RUN_DIR / "SKILL.md").read_text()
         for name in set(re.findall(r"\b([a-z-]+\.md)\b", skill)):
             self.assertTrue((RUN_DIR / name).exists(), name)
+
+    def test_every_script_the_orchestrator_names_exists(self):
+        names = set(re.findall(r"\b([a-z_]+\.py)\b", (RUN_DIR / "SKILL.md").read_text()))
+        self.assertTrue(names)
+        for name in names:
+            self.assertTrue((RUN_DIR / "scripts" / name).exists(), name)
+
+    def test_every_part_has_a_unit_with_an_output_section_naming_it(self):
+        for name, owner in contract.ownership((RUN_DIR / "parts.md").read_text()).items():
+            if owner.wave:
+                sections = (RUN_DIR / owner.unit).read_text().split("\n## Output\n", 1)
+                self.assertEqual(len(sections), 2, f"{owner.unit} has no Output section")
+                self.assertIn(f"`{name}.json`", sections[1], owner.unit)
+
+    def test_each_unit_reads_what_parts_md_says(self):
+        for name, owner in contract.ownership((RUN_DIR / "parts.md").read_text()).items():
+            if owner.wave:
+                output = (RUN_DIR / owner.unit).read_text().split("\n## Output\n", 1)[1]
+                named = set(re.findall(r"`([a-z-]+)\.json`", output)) - {name}
+                self.assertEqual(named, owner.reads, owner.unit)
 
     def test_the_order_covers_every_run_file(self):
         on_disk = {p.name for p in RUN_DIR.glob("*.md")}

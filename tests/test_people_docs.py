@@ -126,6 +126,11 @@ class PeopleDocsTest(unittest.TestCase):
         writes = self.run_docs(brief_naming("ana@taxwire.com", "ben@taxwire.com", "cleo@taxwire.com"))
         self.assertNotIn("cleo@taxwire.com", [w["doc_id"] for w in writes])
 
+    def test_list_fresh_names_only_recent_documents(self):
+        self.existing("ana@taxwire.com", "2026-10-19T07:00:00Z")
+        self.existing("ben@taxwire.com", "2026-09-01T07:00:00Z")
+        self.assertEqual(people_docs.fresh(self.scratch / "existing", NOW), ["ana@taxwire.com"])
+
     def test_writes_are_added_to_the_review_writes(self):
         (self.scratch / "writes.json").write_text(json.dumps([{"op": "set", "collection": "reviews", "doc_id": "r", "file_path": "/x"}]))
         enrich = {"sources": {}, "fields": {}, "notes": [], "handoffs": {"people_profiles": self.profiles}}

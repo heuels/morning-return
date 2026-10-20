@@ -150,7 +150,7 @@ summaries the Drive synthesiser reads.
   | `gmail-enrich.json` | gmail-enrich.md | 2 | gmail | sonnet | medium | calendar, gmail | — | — | `meeting_threads` |
   | `linear-enrich.json` | linear-enrich.md | 2 | linear | haiku | low | github | — | — | `issues` |
   | `meetings.json` | meeting-prep.md | 3 | drive | opus | high | calendar, gmail, slack-enrich, gmail-enrich | `meetings` | — | — |
-  | `github-enrich.json` | github-enrich.md | 3 | github | haiku | low | linear-enrich | — | — | `pr_states` |
+  | `github-enrich.json` | github-enrich.md | 3 | github | haiku | low | github, linear-enrich | — | — | `pr_states` |
   | `reviews.json` | scripts | — | — | — | — | — | — | — | `review_ids`, `queued`, `prompt` |
   | merge | merge_brief.py | — | — | — | — | — | `linear_issues` | — | — |
 

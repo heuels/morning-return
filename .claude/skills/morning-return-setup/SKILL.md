@@ -9,7 +9,8 @@ A claude.ai Routine, **Morning brief**, starts a fresh cloud session every
 weekday morning. With this repository attached, that session loads the
 `morning-return-run` skill from `.claude/skills/morning-return-run/` and
 follows its SKILL.md. The run gathers GitHub, Claude sessions, Slack, Gmail,
-calendars and Linear, reviews PRs in subagents, and writes the result into the
+calendars and Linear in passes, one subagent per source and wave (see the
+run's `parts.md`), runs `/pr-review` reviews, and writes the result into the
 database of one private Artifact page, built from `page/`, which ranks and
 shows it. Outside that page it only reads: it never posts, replies, reviews on
 GitHub or merges.
@@ -64,6 +65,8 @@ Paths below are relative to the repository root.
      can do. Give the user the prompt file and have them create a Routine
      named `Morning brief` there:
      - schedule: weekdays at 07:45 in their timezone
+     - model: Claude Opus 5.5 (the orchestrator; each pass's model is in
+       the run's `parts.md`)
      - connectors: Slack, Gmail, Google Calendar, Google Drive and Linear
      - repositories: `heuels/morning-return` and the `taxwire/*` repositories
        the brief should cover
@@ -78,8 +81,8 @@ Paths below are relative to the repository root.
    isn't checked out, it isn't attached to the Routine: go back to step 5.
 2. `ArtifactData` `query` `briefs` (`order_by` `run_date` desc, `limit` 1) and
    `list` `reviews`. Today's brief should exist, every `sources` entry should
-   be `ok` or carry an error line, and each review the run reported should
-   have a document.
+   be `ok` or carry an error line, each review the run reported should have
+   a document, and no note should say a pass didn't finish.
 3. Compare the brief's `my_prs` numbers with `search_pull_requests`
    `is:open author:<login>` over the same repos.
 4. Open the page (`action: "open"`) and tell the user what was checked, what
@@ -91,8 +94,10 @@ Paths below are relative to the repository root.
   run picks it up. A Routine on the full prompt needs setup steps 4 and 5
   again.
 - **The page** (`page/`): setup step 3.
-- **The review prompt**: `review-prompt.md` is a copy of the one in
-  taxwire-skills' `pr-review.sh`. Refresh it with
+- **The review prompt**: every run reads `/pr-review`'s prompt from
+  taxwire-skills' `pr-review.sh`. `review-prompt.md` is the copy it falls
+  back on; `tests/test_reviews.py` flags it when it drifts from
+  taxwire-skills' `main`. Refresh it with
   `assemble_prompt.py --sync-review-prompt <path to pr-review.sh>`, then push.
 
 ## Troubleshooting
