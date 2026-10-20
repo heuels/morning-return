@@ -12,8 +12,8 @@
   --chip: #eef2ef;
   --forest: #073322;
   --on-forest: #ffffff;
-  --guest: #66726c;
-  --on-guest: #ffffff;
+  --guest: #dfe5e1;
+  --on-guest: #073322;
   --mint: #2cff8e;
   --on-mint: #053321;
   --ok: #12804a;
@@ -44,7 +44,8 @@
     --line: #1d4a37;
     --chip: #123d2d;
     --forest: #0f4630;
-    --guest: #46514c;
+    --guest: #2b3f36;
+  --on-guest: #d9e8df;
     --ok: #2cff8e;
     --ok-bg: #0f4a30;
     --warn: #f6b951;
@@ -67,7 +68,8 @@
   --line: #1d4a37;
   --chip: #123d2d;
   --forest: #0f4630;
-  --guest: #46514c;
+  --guest: #2b3f36;
+  --on-guest: #d9e8df;
   --ok: #2cff8e;
   --ok-bg: #0f4a30;
   --warn: #f6b951;
