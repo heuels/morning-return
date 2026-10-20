@@ -322,6 +322,16 @@ test("meetings show the local time, length, people and what to do this morning",
   assert.equal((await dana.textContent()).trim(), "Dana Park");
   assert.equal(await dana.getAttribute("data-tip"), "Dana Park · Acme · organizer");
   assert.equal(await dana.locator("img").count(), 0);
+  const look = (loc) => loc.evaluate((e) => {
+    const c = getComputedStyle(e);
+    return { radius: c.borderRadius, height: e.getBoundingClientRect().height, shadow: c.boxShadow, bg: c.backgroundColor };
+  });
+  const guest = await look(dana);
+  const teammate = await look(acme.locator(".pp[data-person]").first());
+  assert.equal(guest.radius, teammate.radius);
+  assert.equal(guest.height, teammate.height);
+  assert.equal(guest.shadow, "none");
+  assert.notEqual(guest.bg, teammate.bg);
   assert.equal(await acme.locator('[data-person="ana@taxwire.com"] img').count(), 1);
   assert.equal(await tip(page, '[data-meeting="1"] [data-signal="conference"]'), "Microsoft Teams");
   const act = acme.locator("[data-action]");
@@ -494,6 +504,11 @@ test("people out this week are flagged where they matter", async () => {
   assert.match(await text(page, '[data-pr="101"]'), /Ben out Fri/);
   assert.match(await text(page, '[data-key="203"]'), /Ben out Fri · reviewer/);
   assert.match(await tip(page, '[data-meeting="0"] [data-person="cleo@taxwire.com"] [data-tip]'), /out today/);
+  const ring = (sel) => page.locator(sel).first().evaluate((e) => getComputedStyle(e).boxShadow);
+  assert.equal(
+    await ring('[data-meeting="0"] [data-person="cleo@taxwire.com"] .av'),
+    await ring('[data-meeting="0"] [data-person="dev@taxwire.com"] .av'),
+  );
   const out = await text(page, "[data-out]");
   assert.match(out, /Cleo.*today/);
   assert.match(out, /Ben.*Fri/);

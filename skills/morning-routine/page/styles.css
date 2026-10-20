@@ -12,6 +12,8 @@
   --chip: #eef2ef;
   --forest: #073322;
   --on-forest: #ffffff;
+  --guest: #66726c;
+  --on-guest: #ffffff;
   --mint: #2cff8e;
   --on-mint: #053321;
   --ok: #12804a;
@@ -42,6 +44,7 @@
     --line: #1d4a37;
     --chip: #123d2d;
     --forest: #0f4630;
+    --guest: #46514c;
     --ok: #2cff8e;
     --ok-bg: #0f4a30;
     --warn: #f6b951;
@@ -64,6 +67,7 @@
   --line: #1d4a37;
   --chip: #123d2d;
   --forest: #0f4630;
+  --guest: #46514c;
   --ok: #2cff8e;
   --ok-bg: #0f4a30;
   --warn: #f6b951;
@@ -673,10 +677,10 @@ a.act:focus-visible {
 }
 
 .pp.guest {
-  padding: 2px 9px;
-  color: var(--ink);
-  background: var(--chip);
-  box-shadow: inset 0 0 0 1px var(--line);
+  height: 20px;
+  padding: 0 9px;
+  color: var(--on-guest);
+  background: var(--guest);
 }
 
 .pile {
@@ -1118,10 +1122,6 @@ a.lin:hover {
 .day + .row,
 .out + .row {
   border-top: 1px solid var(--line);
-}
-
-.av.away {
-  box-shadow: 0 0 0 1.5px var(--forest), 0 0 0 3px var(--warn);
 }
 
 /* ---- dialogs ---- */

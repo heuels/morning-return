@@ -204,7 +204,7 @@ function face(ctx, person, note) {
   return h(
     doc,
     "span",
-    { class: `av${out ? " away" : ""}`, "data-tip": tip, tabindex: "0", "aria-label": tip },
+    { class: "av", "data-tip": tip, tabindex: "0", "aria-label": tip },
     isPhoto(person.photo) ? h(doc, "img", { src: person.photo, alt: "" }) : h(doc, "b", null, initials(person.name)),
   );
 }
