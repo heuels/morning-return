@@ -1,22 +1,25 @@
 ## Brief format
 
-The page reads two collections in its database. Write them exactly as below:
+The page reads three collections in its database. Write them exactly as below:
 the page ranks and renders whatever is there, and it trusts these field names.
 Omit nothing. A list with nothing in it is `[]`, an unknown value is `null`.
-Times are ISO 8601 with a timezone; dates are `YYYY-MM-DD`.
+Times are ISO 8601 with a timezone; dates are `YYYY-MM-DD`; clock times the
+page shows as written (`by`) are `HH:MM` in my timezone.
 
 ### `briefs/<run_date>` — one document per run
 
-The document id is the run date in the user's timezone (`2026-10-20`). A second
-run on the same day replaces it.
+The document id is the run date in my timezone (`2026-10-20`). A second run on
+the same day replaces it.
 
 | Field | Value |
 |---|---|
 | `run_date` | The document id. |
-| `generated_at` | When this run finished gathering (UTC). The next run reads it as "since". |
+| `generated_at` | When this run finished gathering (UTC). |
+| `since` | The previous brief's `generated_at`, or `null` on the first run. |
+| `login` | My GitHub login. |
 | `timezone` | The IANA timezone the run used. |
-| `sources` | `{github, sessions, slack, gmail, calendar}`, each `{"ok": true}` or `{"ok": false, "error": "<one line>"}`. A source that failed still gets its lists, as `[]`. |
-| `today` | `{summary, events, prep}`: `summary` is one sentence about the shape of the day; `events` are today's events as `{title, start, end, url}`; `prep` is a list of Items for tomorrow's meetings worth preparing for. |
+| `sources` | `{github, sessions, slack, gmail, calendar}`, each `{"ok": true}` or `{"ok": false, "error": "<one line>"}`. A source that failed still gets its lists, as `[]`. The page never shows `sessions`; it only decides which PRs get reviewed. |
+| `meetings` | Today's meetings, Meeting records, including invites found only in mail. |
 | `review_prs` | PRs where my review was requested by name. |
 | `team_review_prs` | PRs where only one of my teams was requested. Never reviewed. |
 | `my_prs` | My open PRs, drafts included. |
@@ -24,7 +27,26 @@ run on the same day replaces it.
 | `slack_asks` | Items: Slack messages asking me something I haven't answered or reacted to. |
 | `slack_discussions` | Items: Slack threads worth knowing about. |
 | `mail_asks` | Items: mail threads asking me something I haven't replied to. |
-| `notes` | Short strings about the run itself: reviews queued for the next run, a repo that couldn't be attached, anything doubtful. |
+| `notes` | Short sentences about the run itself: reviews queued for the next run, a repo that couldn't be attached, anything doubtful. |
+
+**Meeting** — every entry in `meetings`:
+
+| Field | Value |
+|---|---|
+| `title` | As on the calendar or the invite. |
+| `start`, `end` | ISO times. |
+| `url` | The event's calendar link. For an invite that isn't on my calendar, the invite's "view event" link, where accepting adds it. |
+| `conference` | `meet`, `teams`, `zoom`, `phone`, or `null`. |
+| `on_calendar` | `false` for an invite found in mail but missing from my calendar; otherwise `true`. The page marks these in red and makes adding it the action. |
+| `kind` | `customer`, `prospect`, `partner`, `internal`, `prep`, or `other`. |
+| `org` | The outside organisation, or `null` for internal meetings. |
+| `attendees` | Everyone but me: `{email, name, org, organizer, optional}`. `org` is `"Taxwire"` for teammates. |
+| `context` | One or two sentences: what the meeting is for, what came out of earlier calls, and why I'm there. Taken from mail, Slack and shared docs; `null` when there's nothing to add. |
+| `action` | What to do this morning to be ready, as an Action, or `null` when there's nothing to prepare. |
+
+**Action** — `{verb, url, by}`: `verb` is one or two words naming the step
+("Read brief", "Reply Bryan", "Prep Hubs"); `url` is the `https://` link that
+starts it, or `null`; `by` is the `HH:MM` it's needed by, or `null`.
 
 **PR** — every entry in `review_prs`, `team_review_prs` and `my_prs`:
 
@@ -32,13 +54,18 @@ run on the same day replaces it.
 |---|---|
 | `repo` | `owner/name`. |
 | `number`, `title`, `url`, `author` | As GitHub reports them; `author` is the login. |
+| `author_email` | The author's Taxwire email when the run matched them to a teammate (by their commits' author name and email, then Slack); otherwise `null`. |
 | `draft` | `true` or `false`. |
 | `head_sha` | The PR's current head commit, full 40 characters. |
+| `head_ref`, `base_ref` | The PR's branch and the branch it merges into. Stacked PRs are found by following these. |
 | `mergeable_state` | GitHub's value as returned: `clean`, `has_hooks`, `dirty`, `blocked`, `behind`, `unstable`, `unknown`, `draft`, or `null`. Never translate it. |
 | `ci` | `success`, `failure`, `pending`, or `none` (no statuses and no check runs). `null` in `team_review_prs`, which aren't fetched in full. |
+| `failing_check` | When `ci` is `failure`: `{name, url}` of the first failing check run or status, `url` being its `details_url`/`target_url`. Otherwise `null`. |
 | `review_decision` | `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`, or `null` (also in `team_review_prs`). |
 | `unresolved_threads` | Number of unresolved review threads; `null` in `team_review_prs`. |
+| `first_unresolved_url` | The `html_url` of the first comment in the first unresolved thread, or `null`. |
 | `additions`, `deletions`, `changed_files` | Numbers from GitHub. |
+| `reviewable_additions`, `reviewable_deletions` | The same counts without test files and lockfiles (see below); `null` in `team_review_prs`. |
 | `created_at` | When the PR was opened. |
 | `waiting_since` | For review requests: when it started waiting on me (the PR's `created_at`). Otherwise the same as `created_at`. |
 | `stale` | `true` when the PR carries the `stale` label. |
@@ -46,11 +73,36 @@ run on the same day replaces it.
 | `blocking_signal` | For a review request whose author is waiting on me (pinged me about it in Slack, or it fixes something live), one short line saying so; otherwise `null`. |
 | `review_id` | The id of this PR's document in `reviews` for its current `head_sha`, if one exists; otherwise `null`. |
 
-**Item** — every entry in `today.prep`, `slack_asks`, `slack_discussions` and
-`mail_asks`: `{title, url, who, when, summary}`. `title` is at most ten words,
-in my words, never a subject line copied in. `url` is the `https://` link to the
-message or thread, or `null`. `who` is the person as I'd name them. `when` is the
-message's time. `summary` is one sentence: what they want or what happened.
+Reviewable lines leave out a file when any path segment is `tests`,
+`__tests__` or `__mocks__`, or the file name is `conftest.py`, `test_*.py`,
+`*_test.py`, `*.test.*`, `*.spec.*`, `*.snap`, or a lockfile (`uv.lock`,
+`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`).
+
+**Item** — every entry in `slack_asks`, `slack_discussions` and `mail_asks`:
+
+| Field | Value |
+|---|---|
+| `title` | At most ten words, in my words, never a subject line copied in. |
+| `url` | The `https://` link to the message or thread, or `null`. |
+| `people` | Taxwire teammates involved, as emails (each has a `people` document). |
+| `who` | Everyone else involved, as text: `"Bryan Pikal · PowerPusher"`; or `null`. |
+| `when` | The message's time. |
+| `summary` | One sentence: what they want or what happened. |
+| `tag` | A short label tying it to something today (`"PowerPusher 17:30"`), or `null`. |
+| `action` | An Action when there's something specific to do ("Reply", "Point to #4254"); otherwise `null`. |
+
+### `people/<email>` — one document per teammate
+
+Every teammate the brief names (`author_email`, attendees with `org`
+`"Taxwire"`, an Item's `people`) needs one, so each appears with a photo and a
+name. Write it when it's missing or more than 30 days old; leave it otherwise.
+
+| Field | Value |
+|---|---|
+| `name` | Their full name from Slack. |
+| `org` | `"Taxwire"`. |
+| `photo` | Their Slack profile photo, cropped square and scaled to 64×64, as a `data:image/jpeg;base64,…` URI. `null` when they have none. |
+| `updated_at` | When this run wrote it. |
 
 ### `reviews/<owner>:<repo>:<number>:<head_sha>` — one document per review
 

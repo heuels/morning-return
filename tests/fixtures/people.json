@@ -1,0 +1,22 @@
+{
+  "ana@taxwire.com": {
+    "name": "Ana Lima",
+    "org": "Taxwire",
+    "photo": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxIDEiPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMyMTkyNWEiLz48L3N2Zz4="
+  },
+  "ben@taxwire.com": {
+    "name": "Ben Ortiz",
+    "org": "Taxwire",
+    "photo": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxIDEiPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMyMTkyNWEiLz48L3N2Zz4="
+  },
+  "cleo@taxwire.com": {
+    "name": "Cleo Hart",
+    "org": "Taxwire",
+    "photo": null
+  },
+  "dev@taxwire.com": {
+    "name": "Dev Rao",
+    "org": "Taxwire",
+    "photo": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxIDEiPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMyMTkyNWEiLz48L3N2Zz4="
+  }
+}

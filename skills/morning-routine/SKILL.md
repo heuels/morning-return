@@ -27,10 +27,11 @@ Paths below are relative to this file's directory.
    `Morning routine`. If there is one, `get_trigger` it and take the page URL
    from its prompt's line `Page: <url>`.
 3. **Publish the page.** Publish `page/index.html` with `root: "page"` and
-   `files: ["rank.js", "render.js", "app.js"]` (never `package.json`, which is
-   only for the tests).
+   `files: ["styles.css", "app.js", "render.js", "rank.js", "review.js", "icons.js"]`
+   (never `package.json`, which is only for the tests). A page that already
+   carries a `fonts.css` keeps it; leave it out of `files`.
    - New install: `capabilities: {db: {}, user: {}}`, `icon: "sunrise"`,
-     description `Your weekday morning brief: PRs to review and merge, Slack, mail and calendar.`
+     description `Your morning return: PRs to review, fix and merge, today's meetings with context, replies owed and Slack threads worth knowing.`
    - Existing install: read the page first (`action: "read"` on its URL), then
      publish with `url` set to it and no `capabilities` or `icon`, which keeps
      the page's database and its link.
