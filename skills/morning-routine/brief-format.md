@@ -35,9 +35,9 @@ run on the same day replaces it.
 | `draft` | `true` or `false`. |
 | `head_sha` | The PR's current head commit, full 40 characters. |
 | `mergeable_state` | GitHub's value as returned: `clean`, `has_hooks`, `dirty`, `blocked`, `behind`, `unstable`, `unknown`, `draft`, or `null`. Never translate it. |
-| `ci` | `success`, `failure`, `pending`, or `none` (no statuses and no check runs). |
-| `review_decision` | `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`, or `null`. |
-| `unresolved_threads` | Number of unresolved review threads. |
+| `ci` | `success`, `failure`, `pending`, or `none` (no statuses and no check runs). `null` in `team_review_prs`, which aren't fetched in full. |
+| `review_decision` | `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`, or `null` (also in `team_review_prs`). |
+| `unresolved_threads` | Number of unresolved review threads; `null` in `team_review_prs`. |
 | `additions`, `deletions`, `changed_files` | Numbers from GitHub. |
 | `created_at` | When the PR was opened. |
 | `waiting_since` | For review requests: when it started waiting on me (the PR's `created_at`). Otherwise the same as `created_at`. |

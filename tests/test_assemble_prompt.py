@@ -67,6 +67,20 @@ class AssembleTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             _assemble(artifact_url="https://evil.example/artifact/x")
 
+    def test_real_templates_assemble(self):
+        out = assemble_prompt.assemble(
+            (SKILL_DIR / "run.md").read_text(),
+            review_prompt=assemble_prompt.extract_review_prompt(PR_REVIEW_SH.read_text()),
+            brief_format=(SKILL_DIR / "brief-format.md").read_text(),
+            github_login="heuels",
+            timezone="Europe/Lisbon",
+            artifact_url=URL,
+        )
+        self.assertIn("heuels", out)
+        self.assertIn("You are a panel of three senior engineers", out)
+        self.assertNotIn("{{", out)
+        self.assertLess(len(out.encode()), 60_000)
+
 
 if __name__ == "__main__":
     unittest.main()
