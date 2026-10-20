@@ -13,11 +13,12 @@ user.
 
 The prompt that started this run gives the page link, my GitHub login and my
 timezone. `{{ARTIFACT_URL}}`, `{{GITHUB_LOGIN}}` and `{{TIMEZONE}}` in these
-files stand for them. The other files of this run sit next to this one, and
-its scripts are in `scripts/`. A prompt that carries every file of the run
-instead (`# File:` headings) carries the scripts too: write each
-`# File: scripts/<name>` block to `<scratch>/scripts/<name>` first and use
-that directory.
+files stand for them. `<skill>` below is this skill's directory: the other
+files of the run sit in it, and its scripts in `<skill>/scripts/`. A prompt
+that carries every file of the run instead (`# File:` headings) has no such
+directory: write every `# File: <name>` section to `<scratch>/run/<name>`
+(for a script, the code inside its fence) and use `<scratch>/run` as
+`<skill>`.
 
 Read rules.md, brief-format.md and parts.md first. rules.md binds you and
 every pass; brief-format.md is what the page reads; parts.md lists every
@@ -30,8 +31,8 @@ one part file. Start each with the model and effort its parts.md row gives.
 When an agent named `mr-<part>` is available, use it; otherwise use
 `general-purpose` with that model and effort. Give it this prompt, filled in:
 
-> You are one pass of the morning-return run. Read `<dir>/rules.md`,
-> `<dir>/brief-format.md` and `<dir>/parts.md`, then follow `<dir>/<unit>`.
+> You are one pass of the morning-return run. Read `<skill>/rules.md`,
+> `<skill>/brief-format.md` and `<skill>/parts.md`, then follow `<skill>/<unit>`.
 > Page: <page>. GitHub login: <login>. Timezone: <timezone>. Today
 > (run_date): <run_date>. Window start: <since or the window start>.
 > Scratch: `<scratch>`. In those files `{{ARTIFACT_URL}}`, `{{GITHUB_LOGIN}}`
@@ -60,36 +61,36 @@ scripts do.
    review prompt: `add_repo` `taxwire/taxwire-skills` with `access: "read"`,
    `git clone --depth 1 --filter=blob:none --no-checkout <url> <scratch>/skills`,
    `git -C <scratch>/skills show HEAD:plugins/pr-review/skills/pr-review/pr-review.sh > <scratch>/pr-review.sh`,
-   then `python3 scripts/review_prompt.py --scratch <scratch> --script <scratch>/pr-review.sh --copy review-prompt.md`.
+   then `python3 <skill>/scripts/review_prompt.py --scratch <scratch> --script <scratch>/pr-review.sh --copy <skill>/review-prompt.md`.
    If any of that fails, run `review_prompt.py` without `--script`. Never
    open `pr-review.sh` yourself.
 3. **Between waves.** When wave 1 is back:
-   - `python3 scripts/review_queue.py ids --scratch <scratch>`; `ArtifactData`
+   - `python3 <skill>/scripts/review_queue.py ids --scratch <scratch>`; `ArtifactData`
      `get` each id on `reviews` and write the ones that exist to
      `<scratch>/existing.txt`, one per line; then
-     `python3 scripts/review_queue.py pick --scratch <scratch> --existing <scratch>/existing.txt`.
+     `python3 <skill>/scripts/review_queue.py pick --scratch <scratch> --existing <scratch>/existing.txt`.
      Its `run` list is this run's reviews.
    - Make the clones and worktrees for them (reviews.md).
    - `ArtifactData` `list` `people` with `out_dir` `<scratch>/existing`
      (follow `next_cursor` to the end). Write `<scratch>/versions.json`,
      `{email: version}`, from the versions the listing shows. Then
-     `python3 scripts/people_docs.py --existing <scratch>/existing --now <now> --list-fresh > <scratch>/people-fresh.txt`.
-   - `python3 scripts/plan_waves.py --run-dir <this skill> --scratch <scratch> --wave 2`
+     `python3 <skill>/scripts/people_docs.py --existing <scratch>/existing --now <now> --list-fresh > <scratch>/people-fresh.txt`.
+   - `python3 <skill>/scripts/plan_waves.py --run-dir <skill> --scratch <scratch> --wave 2`
      names the wave-2 passes with work.
 4. **Wave 2.** In one message, start the first four reviews (reviews.md) and
    the wave-2 passes it named.
 5. **Wave 3.** When those are back,
-   `python3 scripts/plan_waves.py --run-dir <this skill> --scratch <scratch> --wave 3`,
+   `python3 <skill>/scripts/plan_waves.py --run-dir <skill> --scratch <scratch> --wave 3`,
    then in one message start reviews 5 to 8 and the wave-3 passes it named.
 6. **Review documents.** For each review that came back, run
-   `python3 scripts/review_doc.py --scratch <scratch> --markdown <its file> --id <its id> --reviewed-at <now>`.
+   `python3 <skill>/scripts/review_doc.py --scratch <scratch> --markdown <its file> --id <its id> --reviewed-at <now>`.
    One that exits 1 is left for the next run.
 7. **Merge.** Write `generated_at` (now, UTC) into `header.json`, then
-   `python3 scripts/merge_brief.py --run-dir <this skill> --scratch <scratch>`.
+   `python3 <skill>/scripts/merge_brief.py --run-dir <skill> --scratch <scratch>`.
    If it exits 1, each error names a part: start that part's pass once more,
    giving it the error lines, and merge again. If it fails again, merge with
    `--skip <part>` for each part still named.
-8. **People.** `python3 scripts/people_docs.py --scratch <scratch> --existing <scratch>/existing --versions <scratch>/versions.json --now <now>`.
+8. **People.** `python3 <skill>/scripts/people_docs.py --scratch <scratch> --existing <scratch>/existing --versions <scratch>/versions.json --now <now>`.
 9. **Write.** `ArtifactData` `batch` the entries of `<scratch>/writes.json` as
    they are, at most 50 per call. Then `set` `briefs/<run_date>` with
    `file_path` `<scratch>/brief.json`, passing the `version` from step 1 as

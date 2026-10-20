@@ -64,7 +64,8 @@ line instead of improvising the run.
 FULL_HEADER = """This prompt carries every file of the morning-return run, each under a
 "File:" heading. Where one file names another (rules.md, github.md and so on),
 it means that file's section below, and scripts/<name> means the script
-under "File: scripts/<name>". Start with SKILL.md.
+under "File: scripts/<name>". Start with SKILL.md, which says where to write
+the files out so the scripts can read them.
 """
 
 
