@@ -53,8 +53,12 @@ Paths below are relative to this file's directory.
    - Existing: `update_trigger` with the Routine's id and the new `prompt`
      only.
 
-   If the result warns that a connector couldn't be stored, tell the user
-   which one and what the warning says to do.
+   Some organizations refuse the `connectors` parameter. Then create the
+   Routine without it. Its sessions get no Slack, Gmail or Calendar tools,
+   and the page shows "Couldn't reach …" for those three. Tell the user to
+   open the Routine on claude.ai's Routines page and add the Slack, Gmail and
+   Google Calendar connectors there. If the result warns that a connector
+   couldn't be stored, pass on the warning the same way.
 6. **Run it once.** `fire_trigger` the Routine, then **Verify**.
 
 ## Verify
