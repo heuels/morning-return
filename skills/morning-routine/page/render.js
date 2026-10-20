@@ -795,7 +795,7 @@ function outLine(ctx) {
     h(doc, "span", { class: "out-l" }, "Out"),
     entries.map((entry) => {
       const person = resolve(ctx, entry.email, entry);
-      return h(doc, "span", { class: "out-p" }, face(ctx, person), `${firstName(person.name)} ${outLabel(entry, ctx.today).replace(/^out /, "")}`);
+      return h(doc, "span", { class: "out-p" }, pill(ctx, person), outLabel(entry, ctx.today).replace(/^out /, ""));
     }),
   );
 }

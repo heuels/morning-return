@@ -509,6 +509,9 @@ test("people out this week are flagged where they matter", async () => {
     await ring('[data-meeting="0"] [data-person="cleo@taxwire.com"] .av'),
     await ring('[data-meeting="0"] [data-person="dev@taxwire.com"] .av'),
   );
+  for (const email of ["cleo@taxwire.com", "ben@taxwire.com"]) {
+    assert.equal(await page.locator(`[data-out] .pp[data-person="${email}"]`).count(), 1, email);
+  }
   const out = await text(page, "[data-out]");
   assert.match(out, /Cleo.*today/);
   assert.match(out, /Ben.*Fri/);
