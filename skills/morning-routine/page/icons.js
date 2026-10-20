@@ -25,6 +25,10 @@ const PATHS = {
   mail: '<rect x="1.8" y="3.4" width="12.4" height="9.2" rx="1.6"/><path d="m2.4 4.4 5.6 4.4 5.6-4.4"/>',
   slack: '<path d="M6 2.2v11.6M10 2.2v11.6M2.2 6h11.6M2.2 10h11.6"/>',
   alert: '<circle cx="8" cy="8" r="6.2"/><path d="M8 4.8v3.6m0 2.6v.1"/>',
+  issue: '<circle cx="8" cy="8" r="6.2"/><circle cx="8" cy="8" r="2.1"/>',
+  terminal: '<rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.6"/><path d="m4.6 6.4 2 1.6-2 1.6M8.4 10.2h3"/>',
+  book: '<path d="M2.4 3.2h4.2c.8 0 1.4.6 1.4 1.4v8.6c0-.7-.6-1.2-1.3-1.2H2.4ZM13.6 3.2H9.4c-.8 0-1.4.6-1.4 1.4v8.6c0-.7.6-1.2 1.3-1.2h4.3Z"/>',
+  close: '<path d="m4 4 8 8m0-8-8 8"/>',
   arrow: '<path d="M4.5 11.5 11.5 4.5M5.8 4.5h5.7v5.7"/>',
   chev: '<path d="m6 3.5 4.5 4.5L6 12.5"/>',
 };

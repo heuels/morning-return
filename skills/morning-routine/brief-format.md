@@ -17,9 +17,13 @@ the same day replaces it.
 | `generated_at` | When this run finished gathering (UTC). |
 | `since` | The previous brief's `generated_at`, or `null` on the first run. |
 | `login` | My GitHub login. |
+| `environment` | The cloud environment this run is in, as `{id, name}` (from `get_session`). Sessions started from the page run there. |
+| `page_url` | This page's claude.ai link. Sessions started from the page read reviews through it. |
 | `timezone` | The IANA timezone the run used. |
-| `sources` | `{github, sessions, slack, gmail, calendar}`, each `{"ok": true}` or `{"ok": false, "error": "<one line>"}`. A source that failed still gets its lists, as `[]`. The page never shows `sessions`; it only decides which PRs get reviewed. |
+| `sources` | `{github, sessions, slack, gmail, calendar, linear}`, each `{"ok": true}` or `{"ok": false, "error": "<one line>"}`. A source that failed still gets its lists, as `[]`. The page never shows `sessions`; it only decides which PRs get reviewed. |
 | `meetings` | Today's meetings, Meeting records, including invites found only in mail. |
+| `day_blocks` | My availability calendar's blocks for today, as `{kind, start, end}` with `kind` one of `focus`, `lunch`, `unavailable`. That calendar mirrors work and personal events alike, so these only draw the day; never call one a clash. |
+| `out_of_office` | Teammates out in the next seven days, from the Taxwire OOO calendar: `{email, name, start, end}`, dates as `YYYY-MM-DD` with `end` exclusive, the way all-day events store them. |
 | `review_prs` | PRs where my review was requested by name. |
 | `team_review_prs` | PRs where only one of my teams was requested. Never reviewed. |
 | `my_prs` | My open PRs, drafts included. |
@@ -27,13 +31,16 @@ the same day replaces it.
 | `slack_asks` | Items: Slack messages asking me something I haven't answered or reacted to. |
 | `slack_discussions` | Items: Slack threads worth knowing about. |
 | `mail_asks` | Items: mail threads asking me something I haven't replied to. |
+| `linear_asks` | Items: Linear comments asking me something I haven't answered (the newest comment on the thread isn't mine). |
+| `linear` | `{assigned, project_updates, stale}`, below. |
+| `linear_issues` | Every Linear issue a PR in the brief points at, by identifier: `{title, url, status, prs}`, `prs` being each PR attached to the issue as `{repo, number, url, state}` with `state` `open`, `merged` or `closed`. |
 | `notes` | Short sentences about the run itself: reviews queued for the next run, a repo that couldn't be attached, anything doubtful. |
 
 **Meeting** — every entry in `meetings`:
 
 | Field | Value |
 |---|---|
-| `title` | As on the calendar or the invite. |
+| `title` | As on the calendar or the invite, unless it says nothing about the meeting (a booking page's "30 minutes meeting"): then a short title naming the organisation and purpose. |
 | `start`, `end` | ISO times. |
 | `url` | The event's calendar link. For an invite that isn't on my calendar, the invite's "view event" link, where accepting adds it. |
 | `conference` | `meet`, `teams`, `zoom`, `phone`, or `null`. |
@@ -72,6 +79,8 @@ starts it, or `null`; `by` is the `HH:MM` it's needed by, or `null`.
 | `stale_closes_on` | For a stale PR, the date the bot will close it (its `updated_at` + 7 days); otherwise `null`. |
 | `blocking_signal` | For a review request whose author is waiting on me (pinged me about it in Slack, or it fixes something live), one short line saying so; otherwise `null`. |
 | `review_id` | The id of this PR's document in `reviews` for its current `head_sha`, if one exists; otherwise `null`. |
+| `linear_id` | The Linear issue this PR belongs to (`DATA-1440`), from the branch name, the title or a `Closes`/`Part of` line in the body; otherwise `null`. |
+| `requested_reviewers` | Reviewers still requested, as `{login, email}`, `email` matched the same way as `author_email` or `null`. |
 
 Reviewable lines leave out a file when any path segment is `tests`,
 `__tests__` or `__mocks__`, or the file name is `conftest.py`, `test_*.py`,
@@ -90,6 +99,14 @@ Reviewable lines leave out a file when any path segment is `tests`,
 | `summary` | One sentence: what they want or what happened. |
 | `tag` | A short label tying it to something today (`"PowerPusher 17:30"`), or `null`. |
 | `action` | An Action when there's something specific to do ("Reply", "Point to #4254"); otherwise `null`. |
+
+**Linear** — what `linear` holds, all for the signed-in Linear user:
+
+| Field | Value |
+|---|---|
+| `assigned` | Issues assigned to me since the previous brief (on the first run, those whose assignment notification is unread) that I haven't started: `{id, title, url, by, when, priority, project}`, `by` being the assigner's email, `priority` Linear's name for it (`Urgent`, `High`, …) or `null`. |
+| `project_updates` | Projects I lead whose update is overdue: `{name, url, due}`. |
+| `stale` | My issues in a started state with no update in 14 days and no open PR: `{id, title, url, status, updated_at}`. |
 
 ### `people/<email>` — one document per teammate
 

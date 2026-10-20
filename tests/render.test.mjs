@@ -64,11 +64,19 @@ async function openHarness(options = {}) {
   return page;
 }
 
-async function render(brief, { reviews = {}, people = fixturePeople, today = TODAY, viewport, colorScheme } = {}) {
+async function render(brief, { reviews = {}, people = fixturePeople, today = TODAY, viewport, colorScheme, sessions = false } = {}) {
   const page = await openHarness({ viewport: viewport ?? { width: 1280, height: 900 }, colorScheme });
   await page.evaluate(
-    ([b, o]) => document.body.replaceChildren(window.renderBrief(document, b, o)),
-    [brief, { reviews, people, today }],
+    ([b, o, withSessions]) => {
+      if (withSessions) {
+        o.startSession = async (request) => {
+          window.__started = request;
+          return { url: "https://claude.ai/code/session_TEST" };
+        };
+      }
+      document.body.replaceChildren(window.renderBrief(document, b, o));
+    },
+    [brief, { reviews, people, today }, sessions],
   );
   return page;
 }
@@ -86,15 +94,15 @@ const tip = (page, selector) => page.locator(selector).first().getAttribute("dat
 test("phone width stacks the day first, then the PRs, with no sideways scroll", async () => {
   const page = await render(clone(), { viewport: { width: 390, height: 900 } });
   const order = (await boxes(page)).sort((a, b) => a.y - b.y).map((s) => s.name);
-  assert.deepEqual(order, ["meetings", "replies", "review-prs", "my-prs", "stale-closed", "fyi"]);
+  assert.deepEqual(order, ["meetings", "replies", "review-prs", "my-prs", "stale-closed", "linear", "fyi"]);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
 });
 
-test("desktop puts the PRs beside meetings, replies and worth-knowing", async () => {
+test("desktop puts the PRs beside meetings, replies, Linear and worth-knowing", async () => {
   const page = await render(clone());
   const box = Object.fromEntries((await boxes(page)).map((s) => [s.name, s]));
   for (const left of ["review-prs", "my-prs", "stale-closed"]) {
-    for (const right of ["meetings", "replies", "fyi"]) {
+    for (const right of ["meetings", "replies", "linear", "fyi"]) {
       assert.ok(box[left].x < box[right].x, `${left} should sit left of ${right}`);
     }
   }
@@ -107,7 +115,7 @@ test("totals count what's owed and link to it", async () => {
   for (const name of ["review", "fix", "merge", "reply", "meetings"]) {
     counts[name] = (await total(name).locator(".n").textContent()).trim();
   }
-  assert.deepEqual(counts, { review: "2", fix: "1", merge: "1", reply: "2", meetings: "3" });
+  assert.deepEqual(counts, { review: "2", fix: "1", merge: "1", reply: "3", meetings: "3" });
   assert.equal(await total("review").getAttribute("href"), "#review-prs");
   assert.equal(await page.locator("#review-prs").count(), 1);
 });
@@ -176,7 +184,7 @@ test("gathered text renders as text, and photos load only from data URIs", async
 test("my PRs follow the ranking, with the stack as one row", async () => {
   const page = await render(clone());
   const keys = await page.$$eval('[data-section="my-prs"] .row[data-key]', (els) => els.map((e) => e.dataset.key));
-  assert.deepEqual(keys, ["202", "203", "201", "stack-301"]);
+  assert.deepEqual(keys, ["202", "201", "203", "stack-301"]);
 });
 
 test("each PR carries its status as icons with tooltips", async () => {
@@ -186,19 +194,27 @@ test("each PR carries its status as icons with tooltips", async () => {
   assert.equal(await tip(page, `${pr(201)} [data-signal="merge"]`), "Behind main");
   assert.equal(await tip(page, `${pr(201)} [data-signal="review"]`), "Approved");
   assert.equal(await tip(page, `${pr(201)} [data-signal="threads"]`), "1 unresolved thread");
-  assert.equal(await page.locator(`${pr(202)} [data-signal="threads"][data-tip]`).count(), 0);
+  assert.equal(await tip(page, `${pr(202)} [data-signal="threads"]`), "No unresolved threads");
   assert.equal(await tip(page, '[data-group="team"] [data-signal="threads"]'), "Threads not checked");
 });
 
-test("PR sections head their icon columns with grey icons that explain them", async () => {
+test("PR section headings carry grey column icons that explain them, lined up with the rows", async () => {
   const page = await render(clone());
+  assert.equal(await page.locator(".colhead").count(), 0);
   for (const section of ["review-prs", "my-prs"]) {
-    const tips = await page.$$eval(`[data-section="${section}"] .colhead [data-tip]`, (els) =>
-      els.map((e) => e.dataset.tip),
-    );
+    const tips = await page.$$eval(`[data-section="${section}"] h2 [data-tip]`, (els) => els.map((e) => e.dataset.tip));
     assert.deepEqual(tips.slice(0, 4), ["CI checks", "Mergeable with base", "Review decision", "Unresolved review threads"]);
     assert.equal(tips.length, 5);
+    const x = (sel) => page.locator(sel).first().evaluate((e) => Math.round(e.getBoundingClientRect().left + e.getBoundingClientRect().width / 2));
+    assert.equal(await x(`[data-section="${section}"] h2 [data-signal="ci"]`), await x(`[data-section="${section}"] .row [data-signal="ci"]`));
   }
+  const size = (sel) => page.locator(sel).first().evaluate((e) => e.getBoundingClientRect().width);
+  assert.equal(await size('[data-section="my-prs"] h2 [data-signal="ci"] svg'), await size('[data-section="my-prs"] .row [data-signal="ci"] svg'));
+});
+
+test("PR rows don't repeat the commit scope as a tag", async () => {
+  const page = await render(clone());
+  assert.doesNotMatch(await text(page, '[data-pr="101"] .body'), /campfire/i);
 });
 
 test("each PR's action is a link to the next step, except when there's nothing to do", async () => {
@@ -264,7 +280,15 @@ test("review findings open in place, issues before the full write-up", async () 
   const issues = review.locator("[data-issue]");
   assert.equal(await issues.count(), 2);
   assert.match(await issues.first().textContent(), /High.*Voids an invoice twice on retry.*api\/void\.py:42/);
-  assert.match(await review.locator("pre").textContent(), /# Code Review/);
+  const rowHeight = await page.locator('[data-pr="101"]').evaluate((e) => e.getBoundingClientRect().height);
+  await review.locator("[data-full]").click();
+  const dialog = page.locator("[data-review-dialog]");
+  assert.equal(await dialog.evaluate((d) => d.open), true);
+  assert.equal(await dialog.locator(".md h2").first().textContent(), "Code Review");
+  assert.equal(await dialog.locator(".md table tbody tr").count(), 2);
+  assert.equal(await page.locator('[data-pr="101"]').evaluate((e) => e.getBoundingClientRect().height), rowHeight);
+  await page.keyboard.press("Escape");
+  assert.equal(await dialog.evaluate((d) => d.open), false);
 });
 
 test("PR authors who work at Taxwire appear the same way as meeting attendees", async () => {
@@ -272,8 +296,9 @@ test("PR authors who work at Taxwire appear the same way as meeting attendees", 
   const author = page.locator('[data-pr="101"] [data-person="ben@taxwire.com"]');
   assert.equal(await author.count(), 1);
   assert.match(await author.textContent(), /Ben/);
-  assert.equal(await tip(page, '[data-pr="101"] [data-person="ben@taxwire.com"] [data-tip]'), "Ben Ortiz · Taxwire");
-  assert.match(await text(page, '[data-pr="102"]'), /teammate-b/);
+  assert.equal(await tip(page, '[data-pr="101"] [data-person="ben@taxwire.com"] [data-tip]'), "Ben Ortiz · Taxwire · out Fri");
+  const guest = page.locator('[data-pr="102"] [data-external]');
+  assert.equal((await guest.textContent()).trim(), "teammate-b");
 });
 
 test("team requests sit open under the review list and are never reviewed", async () => {
@@ -293,7 +318,10 @@ test("meetings show the local time, length, people and what to do this morning",
   assert.equal((await acme.locator(".ln").textContent()).trim(), "15:30");
   assert.equal((await acme.locator(".when").textContent()).trim(), "30m");
   assert.match(await acme.textContent(), /Customer/);
-  assert.match(await acme.textContent(), /Dana Park · Acme/);
+  const dana = acme.locator("[data-external]");
+  assert.equal((await dana.textContent()).trim(), "Dana Park");
+  assert.equal(await dana.getAttribute("data-tip"), "Dana Park · Acme · organizer");
+  assert.equal(await dana.locator("img").count(), 0);
   assert.equal(await acme.locator('[data-person="ana@taxwire.com"] img').count(), 1);
   assert.equal(await tip(page, '[data-meeting="1"] [data-signal="conference"]'), "Microsoft Teams");
   const act = acme.locator("[data-action]");
@@ -325,8 +353,8 @@ test("larger meetings show faces only, each naming its person on hover", async (
   const faces = await page.$$eval('[data-meeting="0"] .pile [data-tip]', (els) => els.map((e) => e.dataset.tip));
   assert.deepEqual(faces, [
     "Ana Lima · Taxwire · organizer",
-    "Ben Ortiz · Taxwire · optional",
-    "Cleo Hart · Taxwire",
+    "Ben Ortiz · Taxwire · optional · out Fri",
+    "Cleo Hart · Taxwire · out today",
     "Dev Rao · Taxwire",
   ]);
 });
@@ -363,7 +391,7 @@ test("replies name who's waiting and by when", async () => {
 
 test("worth-knowing threads show their people and need no action", async () => {
   const page = await render(clone());
-  const item = page.locator('[data-section="fyi"] [data-item="C1"]');
+  const item = page.locator('[data-section="fyi"] [data-item="D1"]');
   assert.equal(await item.locator("[data-person]").count(), 2);
   const act = item.locator("[data-action]");
   assert.match(await act.textContent(), /Read/);
@@ -424,4 +452,163 @@ test("dark mode follows the system unless the viewer picked light", async () => 
   assert.notEqual(await bg(light), await bg(dark));
   await dark.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   assert.equal(await bg(dark), await bg(light));
+});
+
+// ---- Linear, people out, the day, sessions ------------------------------------
+
+const REVIEW_MD = [
+  "# Code Review",
+  "## Issues",
+  "| ID | Sev | Cat | Location | Issue |",
+  "|----|-----|-----|----------|-------|",
+  "| SEC-1 | High | SEC | `api/void.py:42` `void_invoice()` | Voids an invoice twice on retry |",
+  "| PERF-1 | Medium | PERF | `api/sync.py:9` `sync()` | N+1 query per line item |",
+].join("\n");
+const withReview = () => {
+  const brief = clone();
+  const id = brief.review_prs[0].review_id;
+  return [brief, { [id]: { verdict: "needs-work", counts: { high: 1, medium: 1 }, markdown: REVIEW_MD } }];
+};
+
+test("PRs for the same Linear issue sit together under it, with the issue's other PRs named", async () => {
+  const page = await render(clone());
+  const keys = await page.$$eval('[data-section="my-prs"] [data-linear], [data-section="my-prs"] .row[data-key]', (els) =>
+    els.map((e) => e.dataset.linear ? `group:${e.dataset.linear}` : e.dataset.key),
+  );
+  assert.deepEqual(keys, ["group:APP-1", "202", "201", "203", "stack-301"]);
+  const group = page.locator('[data-linear="APP-1"]');
+  assert.match(await group.textContent(), /APP-1.*Sandbox filter on the status table/);
+  assert.match(await group.textContent(), /example-api#204 closed/);
+  assert.equal(await group.locator("a").first().getAttribute("href"), "https://linear.app/taxwire/issue/APP-1");
+});
+
+test("a PR on its own still links its Linear issue", async () => {
+  const page = await render(clone());
+  const chip = page.locator('[data-key="203"] a.lin');
+  assert.equal((await chip.textContent()).trim(), "DATA-9");
+  assert.equal(await chip.getAttribute("href"), "https://linear.app/taxwire/issue/DATA-9");
+});
+
+test("people out this week are flagged where they matter", async () => {
+  const page = await render(clone());
+  assert.match(await text(page, '[data-pr="101"]'), /Ben out Fri/);
+  assert.match(await text(page, '[data-key="203"]'), /Ben out Fri · reviewer/);
+  assert.match(await tip(page, '[data-meeting="0"] [data-person="cleo@taxwire.com"] [data-tip]'), /out today/);
+  const out = await text(page, "[data-out]");
+  assert.match(out, /Cleo.*today/);
+  assert.match(out, /Ben.*Fri/);
+});
+
+test("the day strip draws focus, lunch, busy time and meetings to scale", async () => {
+  const page = await render(clone());
+  const blocks = await page.$$eval("[data-day] [data-block]", (els) =>
+    els.map((e) => [e.dataset.block, e.dataset.tip, Math.round(e.getBoundingClientRect().width)]),
+  );
+  assert.equal(blocks.length, 6);
+  const focus = blocks.find(([k]) => k === "focus");
+  assert.equal(focus[1], "Focus 08:00–09:30");
+  const lunch = blocks.find(([k]) => k === "lunch");
+  assert.ok(Math.abs(focus[2] / lunch[2] - 1.5) < 0.05, `focus ${focus[2]}px should be 1.5× lunch ${lunch[2]}px`);
+  assert.ok(blocks.some(([k, t]) => k === "meeting" && /Globex demo.*not on calendar/.test(t)));
+});
+
+test("Linear lists new assignments, overdue project updates and quiet issues", async () => {
+  const page = await render(clone());
+  const linear = page.locator('[data-section="linear"]');
+  const assigned = linear.locator('[data-item="DATA-10"]');
+  assert.match(await assigned.textContent(), /NetSuite rounds the tax rate/);
+  assert.match(await assigned.locator("[data-action]").textContent(), /Triage/);
+  assert.equal((await assigned.locator(".ln").textContent()).trim(), "C1");
+  assert.equal((await assigned.locator("a.lin").textContent()).trim(), "DATA-10");
+  const update = linear.locator('[data-item="update-1"]');
+  assert.match(await update.textContent(), /NetSuite polish/);
+  assert.match(await update.locator("[data-action]").textContent(), /Post update/);
+  const quiet = linear.locator('[data-group="linear-stale"]');
+  assert.equal(await quiet.evaluate((d) => d.open), false);
+  assert.match(await quiet.locator("summary").textContent(), /^1 in progress, quiet for two weeks or more$/);
+});
+
+test("Linear comments waiting on me are replies owed", async () => {
+  const page = await render(clone());
+  const ask = page.locator('[data-section="replies"] [data-item="B3"]');
+  assert.match(await ask.textContent(), /Answer Ana on the \$0 tax investigation/);
+  assert.equal(await tip(page, '[data-item="B3"] [data-signal="source"]'), "Linear");
+});
+
+test("review findings link to their line in the PR's changed files", async () => {
+  const [brief, reviews] = withReview();
+  const page = await render(brief, { reviews });
+  await page.locator('[data-pr="101"] [data-review] > summary').click();
+  const loc = page.locator('[data-issue="SEC-1"] a.loc');
+  await page.waitForFunction(() => document.querySelector('[data-issue="SEC-1"] a.loc')?.href.includes("#diff-"));
+  const { createHash } = await import("node:crypto");
+  const anchor = createHash("sha256").update("api/void.py").digest("hex");
+  assert.equal(await loc.getAttribute("href"), `${brief.review_prs[0].url}/files#diff-${anchor}R42`);
+});
+
+test("findings are all ticked, and only ticked ones go into the session prompt", async () => {
+  const [brief, reviews] = withReview();
+  const page = await render(brief, { reviews, sessions: true });
+  await page.locator('[data-pr="101"] [data-review] > summary').click();
+  const boxes = page.locator('[data-pr="101"] [data-issue] input[type="checkbox"]');
+  assert.equal(await boxes.count(), 2);
+  assert.deepEqual(await boxes.evaluateAll((els) => els.map((e) => e.checked)), [true, true]);
+  await boxes.nth(1).uncheck();
+  await page.locator('[data-pr="101"] [data-session]').click();
+  const dialog = page.locator("[data-session-dialog]");
+  assert.equal(await dialog.evaluate((d) => d.open), true);
+  const prompt = await dialog.locator("textarea").inputValue();
+  assert.match(prompt, /SEC-1/);
+  assert.doesNotMatch(prompt, /PERF-1/);
+  assert.match(await dialog.locator('input[name="title"]').inputValue(), /^MR: /);
+});
+
+test("starting a session sends the edited title and prompt with the PR's repo and branch", async () => {
+  const [brief, reviews] = withReview();
+  const page = await render(brief, { reviews, sessions: true });
+  await page.locator('[data-pr="101"] [data-review] > summary').click();
+  await page.locator('[data-pr="101"] [data-session]').click();
+  const dialog = page.locator("[data-session-dialog]");
+  await dialog.locator('input[name="title"]').fill("MR: my own title");
+  await dialog.locator("textarea").fill("Look only at the retry path.");
+  await dialog.locator("[data-start]").click();
+  await page.waitForFunction(() => window.__started);
+  const sent = await page.evaluate(() => window.__started);
+  assert.deepEqual(sent, {
+    title: "MR: my own title",
+    prompt: "Look only at the retry path.",
+    repo: "taxwire/example-api",
+    branch: "heuels/pr-101",
+    environment_id: "env_test",
+  });
+  const opened = dialog.locator('a[href="https://claude.ai/code/session_TEST"]');
+  await opened.waitFor();
+  assert.match(await opened.textContent(), /Open/);
+});
+
+test("without session access the dialog offers a prefilled claude.ai/code link instead", async () => {
+  const page = await render(clone());
+  await page.locator('[data-key="203"] [data-session]').click();
+  const dialog = page.locator("[data-session-dialog]");
+  assert.equal(await dialog.locator("[data-start]").count(), 0);
+  const prompt = await dialog.locator("textarea").inputValue();
+  assert.match(prompt, /lint/);
+  assert.match(prompt, /https:\/\/ci\.example\.com\/runs\/203/);
+  const href = new URL(await dialog.locator("a[data-session-link]").getAttribute("href"));
+  assert.equal(href.origin + href.pathname, "https://claude.ai/code");
+  assert.equal(href.searchParams.get("prompt"), prompt);
+  assert.equal(href.searchParams.get("repositories"), "taxwire/example-api");
+  assert.equal(href.searchParams.get("environment"), "Taxwire");
+  await dialog.locator("textarea").fill("Edited.");
+  const edited = new URL(await dialog.locator("a[data-session-link]").getAttribute("href"));
+  assert.equal(edited.searchParams.get("prompt"), "Edited.");
+});
+
+test("teammates' faces keep their ring in a pile, the same as in a pill", async () => {
+  const page = await render(clone());
+  const ring = (sel) => page.locator(sel).first().evaluate((e) => getComputedStyle(e).boxShadow);
+  const inPile = await ring('[data-meeting="0"] .pile [data-person="dev@taxwire.com"] .av');
+  const inPill = await ring('[data-meeting="1"] .pp[data-person="ana@taxwire.com"] .av');
+  assert.equal(inPile, inPill);
+  assert.notEqual(inPile, "none");
 });

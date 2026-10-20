@@ -1,13 +1,13 @@
 ---
 name: morning-routine
-description: "Set up, update or check the user's morning routine: a weekday claude.ai Routine that ranks their PRs to review and to merge, runs pr-review's review prompt on direct review requests and their finished PRs, and gathers Slack, Gmail and Calendar into one Artifact page. Use when the user asks to set up, update, re-install, fix or verify their morning routine or morning brief page, or to run it now."
+description: "Set up, update or check the user's morning routine: a weekday claude.ai Routine that ranks their PRs to review and to merge, runs pr-review's review prompt on direct review requests and their finished PRs, and gathers Slack, Gmail, Calendar and Linear into one Artifact page. Use when the user asks to set up, update, re-install, fix or verify their morning routine or morning brief page, or to run it now."
 ---
 
 # Morning routine
 
 A claude.ai Routine starts a fresh cloud session every weekday morning. That
-session follows `run.md`, gathers GitHub, Claude sessions, Slack, Gmail and
-Calendar, reviews PRs in subagents, and writes the result into the database of
+session follows `run.md`, gathers GitHub, Claude sessions, Slack, Gmail,
+Calendar, Linear, reviews PRs in subagents, and writes the result into the database of
 one private Artifact page, which ranks and shows it. Outside that page it only
 reads: it never posts, replies, reviews on GitHub or merges.
 
@@ -27,14 +27,16 @@ Paths below are relative to this file's directory.
    `Morning routine`. If there is one, `get_trigger` it and take the page URL
    from its prompt's line `Page: <url>`.
 3. **Publish the page.** Publish `page/index.html` with `root: "page"` and
-   `files: ["styles.css", "app.js", "render.js", "rank.js", "review.js", "icons.js"]`
+   `files: ["styles.css", "app.js", "render.js", "rank.js", "review.js", "icons.js", "markdown.js", "session.js"]`
    (never `package.json`, which is only for the tests). A page that already
    carries a `fonts.css` keeps it; leave it out of `files`.
-   - New install: `capabilities: {db: {}, user: {}}`, `icon: "sunrise"`,
+   - New install: `capabilities: {db: {}, user: {}, mcp: {servers: [{server: "Claude Code Remote", tools: ["create_session"]}]}}`
+     (the `mcp` entry lets the page start Claude Code sessions; the viewer
+     allows it on first use), `icon: "sunrise"`,
      description `Your morning return: PRs to review, fix and merge, today's meetings with context, replies owed and Slack threads worth knowing.`
    - Existing install: read the page first (`action: "read"` on its URL), then
-     publish with `url` set to it and no `capabilities` or `icon`, which keeps
-     the page's database and its link.
+     publish with `url` set to it, the same `capabilities` as a new install and
+     no `icon`, which keeps the page's database and its link.
 4. **Assemble the prompt** into the scratchpad:
 
    ```bash
@@ -48,7 +50,7 @@ Paths below are relative to this file's directory.
    - New: `create_trigger` with `name: "Morning routine"`,
      `cron_expression: "CRON_TZ=<tz> 45 7 * * 1-5"`,
      `create_new_session_on_fire: true`,
-     `connectors: ["Slack", "Gmail", "Google Calendar"]`,
+     `connectors: ["Slack", "Gmail", "Google Calendar", "Google Drive", "Linear"]`,
      `initiation: "human_request"`, and the assembled file's contents as
      `prompt`.
    - Existing: `update_trigger` with the Routine's id and the new `prompt`
@@ -59,11 +61,12 @@ Paths below are relative to this file's directory.
    no GitHub tools, no `list_repos`/`add_repo` and no `list_sessions`, so its
    runs gather nothing. Instead, give the user the assembled prompt file and
    have them create the Routine on claude.ai's Routines page, with the same
-   name and schedule, the Slack, Gmail and Google Calendar connectors, and the
+   name and schedule, the Slack, Gmail, Google Calendar, Google Drive and Linear
+   connectors, and the
    `taxwire/*` repositories they want covered selected as its repositories.
    Then continue with step 6 on that Routine. Its runs still can't list
-   Claude sessions, so the page notes that source as unavailable, and drafts
-   are reviewed only once they're marked ready for review.
+   Claude sessions, so drafts are reviewed only once they're marked ready for
+   review.
 6. **Run it once.** `fire_trigger` the Routine, then **Verify**.
 
 ## Verify
