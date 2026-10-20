@@ -58,8 +58,12 @@ Paths below are relative to the repository root.
    `--mode full` for one without it: the prompt then carries every file of the
    run, and a change here reaches it only when setup runs again.
 5. **Create or update the Routine.**
-   - Existing: `update_trigger` with the Routine's id and the new `prompt`
-     only. Its repositories, connectors and schedule stay as they are.
+   - Existing: an agent can only update a Routine it created itself
+     (`create_trigger`). A Routine created on claude.ai's Routines page, as
+     Morning brief was, is edited there: give the user the prompt file and
+     the Routine's link (`https://claude.ai/code/routines/<id>`) and have
+     them paste the prompt and pick the model. Its repositories, connectors
+     and schedule stay as they are.
    - New: Routines that read GitHub, list sessions and load this repository's
      skills need repositories selected, which only claude.ai's Routines page
      can do. Give the user the prompt file and have them create a Routine

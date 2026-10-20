@@ -58,3 +58,6 @@ source as failed: put the new id in `parts.md`'s Tools table and run
 - With no model set, the Routine's sessions run on `claude-sonnet-5-5` (its
   last run, `cse_01PeSWfab3vHvnCUzTShmVYM`).
 - Its API view (`get_trigger`) doesn't show attached repositories.
+- It was created on claude.ai's Routines page, so an agent can't change it:
+  `update_trigger` only updates Routines an agent created. Its prompt, model
+  and repositories are edited on that page.
