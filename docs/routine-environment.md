@@ -32,10 +32,19 @@ here stops matching what a run does.
 
 ## Tool names
 
-Sessions started from server configuration name connector tools by the
-connector's id, not its display name: `mcp__<connector id>__<tool>`. An
-interactive session may name the same tools `mcp__Slack__<tool>` and so on.
-The ids are the `connector_uuid`s stored on the Morning brief Routine:
+How a session names a connector's tools depends on how it started:
+
+- **A Routine's session** names them after the connector as the Routine
+  stores it: `mcp__Slack__<tool>`, `mcp__Google-Calendar__<tool>` (seen in
+  the first run of the Morning return Routine, `cse_01GxRWsXBusJZbVfumtrbDHM`,
+  2026-10-20).
+- **An interactive session** uses the same names with `_` for `-`:
+  `mcp__Google_Calendar__<tool>`.
+- **A session started with `create_session`** names them by connector id:
+  `mcp__<connector id>__<tool>`.
+
+The run's agents list every tool under all three. The ids, and the names the
+Morning return Routine stores:
 
 | Source | Connector | Tools are named |
 |---|---|---|
@@ -55,9 +64,13 @@ source as failed: put the new id in `parts.md`'s Tools table and run
 
 ## The Routine itself
 
+- Its sessions have no `list_sessions` (its first run said so), so the
+  sessions pass reports that source as failed and no draft counts as
+  finished. The page never shows that source.
+
 - With no model set, the Routine's sessions run on `claude-sonnet-5-5` (its
   last run, `cse_01PeSWfab3vHvnCUzTShmVYM`).
 - Its API view (`get_trigger`) doesn't show attached repositories.
-- It was created on claude.ai's Routines page, so an agent can't change it:
-  `update_trigger` only updates Routines an agent created. Its prompt, model
-  and repositories are edited on that page.
+- An agent can change only a Routine it created (`create_trigger`); one made
+  on claude.ai's Routines page is edited there. Connectors and repositories
+  can only be added on that page either way.

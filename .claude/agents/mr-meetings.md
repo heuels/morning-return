@@ -1,7 +1,7 @@
 ---
 name: mr-meetings
 description: The morning-return run's meetings pass (meeting-prep.md). Started only by the morning-return-run orchestrator.
-tools: Read, Grep, Glob, Write, mcp__379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d__search_files, mcp__Google_Drive__search_files, mcp__379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d__read_file_content, mcp__Google_Drive__read_file_content
+tools: Read, Grep, Glob, Write, mcp__379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d__search_files, mcp__Google-Drive__search_files, mcp__Google_Drive__search_files, mcp__379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d__read_file_content, mcp__Google-Drive__read_file_content, mcp__Google_Drive__read_file_content
 model: opus
 effort: high
 ---

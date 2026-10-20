@@ -93,9 +93,11 @@ anything else, and any record the page couldn't read, with a note.
 
 A pass holds only its source's read tools, named exactly, plus `Read`,
 `Grep`, `Glob` and `Write`; the review agent also gets `Bash`. A connector's
-tools are named after its server: its connector id in a Routine's session,
-its display name in an interactive one. Each is listed under both, since a
-name a session doesn't have is ignored. Never list a whole server: that
+tools are named after its server, which differs by how the session started:
+a Routine's session uses the connector's name as the Routine stores it
+(`Google-Calendar`), an interactive one the same name with `_` for `-`, and a
+session started with `create_session` the connector's id. Each is listed
+under all of them, since a name a session doesn't have is ignored. Never list a whole server: that
 grants its write tools too. The run's agents (`.claude/agents/mr-*.md`) are
 generated from this table and the two above by
 `.claude/skills/morning-return-setup/write_agents.py`: change them here, then
@@ -108,6 +110,6 @@ run it.
 | sessions | `claude-code-remote` | `list_sessions` |
 | slack | `8a43f4e5-70cf-4897-b7f9-df683ecf443c`, `Slack` | `slack_search_public_and_private`, `slack_read_thread`, `slack_read_channel`, `slack_get_reactions`, `slack_search_users`, `slack_read_user_profile` |
 | gmail | `c7542e7c-885c-48cd-9b74-ecdf4fdf1d26`, `Gmail` | `search_threads`, `get_thread` |
-| calendar | `9a7a8585-9f55-4ba2-9388-b200c6b55844`, `Google_Calendar` | `list_calendars`, `list_events` |
+| calendar | `9a7a8585-9f55-4ba2-9388-b200c6b55844`, `Google-Calendar`, `Google_Calendar` | `list_calendars`, `list_events` |
 | linear | `0e265249-b98c-497c-b9a3-1c37685deedb`, `Linear` | `get_user`, `get_notifications`, `get_issue`, `list_comments`, `list_issues` |
-| drive | `379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d`, `Google_Drive` | `search_files`, `read_file_content` |
+| drive | `379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d`, `Google-Drive`, `Google_Drive` | `search_files`, `read_file_content` |

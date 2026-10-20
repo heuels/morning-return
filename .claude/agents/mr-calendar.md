@@ -1,7 +1,7 @@
 ---
 name: mr-calendar
 description: The morning-return run's calendar pass (calendar.md). Started only by the morning-return-run orchestrator.
-tools: Read, Grep, Glob, Write, mcp__9a7a8585-9f55-4ba2-9388-b200c6b55844__list_calendars, mcp__Google_Calendar__list_calendars, mcp__9a7a8585-9f55-4ba2-9388-b200c6b55844__list_events, mcp__Google_Calendar__list_events
+tools: Read, Grep, Glob, Write, mcp__9a7a8585-9f55-4ba2-9388-b200c6b55844__list_calendars, mcp__Google-Calendar__list_calendars, mcp__Google_Calendar__list_calendars, mcp__9a7a8585-9f55-4ba2-9388-b200c6b55844__list_events, mcp__Google-Calendar__list_events, mcp__Google_Calendar__list_events
 model: haiku
 effort: low
 ---

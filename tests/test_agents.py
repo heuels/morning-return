@@ -69,12 +69,19 @@ class AgentsTest(unittest.TestCase):
                 verb = re.sub(r"^slack_", "", short).split("_")[0]
                 self.assertTrue(verb in READ_VERBS or short in READ_EXCEPTIONS, f"{name}: {tool}")
 
-    def test_connector_tools_are_named_both_ways(self):
-        for source, tools in contract.tools_by_source(PARTS).items():
-            servers = {tool.split("__")[1] for tool in tools}
-            if source in {"slack", "gmail", "calendar", "drive", "linear"}:
-                self.assertEqual(len(servers), 2, f"{source}: {servers}")
-
+    def test_connector_tools_are_named_every_way_a_session_names_them(self):
+        # Connector names as the Morning return Routine stores them, and their ids.
+        routine = {
+            "slack": ("Slack", "8a43f4e5-70cf-4897-b7f9-df683ecf443c"),
+            "gmail": ("Gmail", "c7542e7c-885c-48cd-9b74-ecdf4fdf1d26"),
+            "calendar": ("Google-Calendar", "9a7a8585-9f55-4ba2-9388-b200c6b55844"),
+            "drive": ("Google-Drive", "379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d"),
+            "linear": ("Linear", "0e265249-b98c-497c-b9a3-1c37685deedb"),
+        }
+        by_source = contract.tools_by_source(PARTS)
+        for source, (name, connector_id) in routine.items():
+            servers = {tool.split("__")[1] for tool in by_source[source]}
+            self.assertLessEqual({name, name.replace("-", "_"), connector_id}, servers, source)
 
 if __name__ == "__main__":
     unittest.main()
