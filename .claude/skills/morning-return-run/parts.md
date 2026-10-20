@@ -15,7 +15,7 @@ as they are.
 | Part | Unit | Wave | Tools | Model | Effort | Reads | Fields | Sources | Hand-offs |
 |---|---|---|---|---|---|---|---|---|---|
 | header | SKILL.md | 0 | — | — | — | — | `run_date`, `generated_at`, `since`, `login`, `environment`, `page_url`, `timezone`, `notes` | — | — |
-| `github.json` | github.md | 1 | github | sonnet | medium | — | `review_prs`, `team_review_prs`, `my_prs`, `stale_closed` | `github` | `repos`, `pr_keys`, `commit_identities` |
+| `github.json` | github.md | 1 | github | sonnet | medium | — | `review_prs`, `team_review_prs`, `my_prs`, `stale_closed` | `github` | `pr_keys`, `commit_identities` |
 | `sessions.json` | sessions.md | 1 | sessions | haiku | medium | — | — | `sessions` | `branches` |
 | `slack.json` | slack.md | 1 | slack | sonnet | high | — | `slack_asks`, `slack_discussions` | `slack` | `pr_links`, `ask_senders`, `seen` |
 | `gmail.json` | gmail.md | 1 | gmail | sonnet | high | — | `mail_asks` | `gmail` | `invites`, `senders` |
@@ -60,12 +60,13 @@ Every part file is one JSON object:
 ```
 
 `sources` and `fields` hold only what the part owns, in the brief format's
-shapes. `notes` are sentences for the brief's notes. `handoffs` hold only the
-part's hand-offs, in the shapes below. A key the part doesn't own is an error.
+shapes; a part that owns no source leaves `sources` as `{}` and puts a
+failure in `notes`. `notes` are sentences for the brief's notes. `handoffs`
+hold only the part's hand-offs, in the shapes below. The merge leaves out
+anything else, and any record the page couldn't read, with a note.
 
 ## Hand-offs
 
-- `repos`: `[{repo, clone}]`, each repo searched and the clone URL `add_repo` gave.
 - `pr_keys`: `[{key, url, title, head_ref, author}]`, every PR in the part's fields.
 - `commit_identities`: `{login: [{name, email}]}`, the author names and emails on each PR author's and requested reviewer's commits (`get_commits`).
 - `branches`: `[{repo, branch, finished}]`, one per repo and branch, from the most recently updated matching session.

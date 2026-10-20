@@ -18,8 +18,17 @@ from pathlib import Path
 
 import contract
 
-TOTALS = re.compile(r"^-\s*Totals:\s*Critical\s+(\d+),\s*High\s+(\d+),\s*Medium\s+(\d+),\s*Low\s+(\d+)", re.IGNORECASE | re.MULTILINE)
-VERDICT = re.compile(r"^-\s*Verdict:\s*(blocking|needs-work|minor|ship-ready)\b", re.IGNORECASE | re.MULTILINE)
+# A Summary line as /pr-review prints it, give or take the markdown a model
+# adds: `*` for `-`, bold or italic labels, a colon after each severity, a
+# verdict in backticks.
+_LABEL = r"^\s*[-*]\s*[*_]{{0,2}}{name}[*_]{{0,2}}\s*:?\s*[*_]{{0,2}}\s*"
+_COUNT = r"{name}\s*:?\s*(\d+)"
+TOTALS = re.compile(
+    _LABEL.format(name="Totals") + r",\s*".join(_COUNT.format(name=n) for n in ("Critical", "High", "Medium", "Low")),
+    re.IGNORECASE | re.MULTILINE,
+)
+VERDICT = re.compile(_LABEL.format(name="Verdict") + r"[`*_]*(blocking|needs-work|minor|ship-ready)\b", re.IGNORECASE | re.MULTILINE)
+REVIEW_ID = re.compile(r"^([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):(\d+):([0-9a-f]{40})$")
 
 
 def parse_summary(markdown):
@@ -35,13 +44,16 @@ def parse_summary(markdown):
 
 
 def parse_id(review_id):
-    owner, name, number, head_sha = review_id.split(":")
-    return f"{owner}/{name}", int(number), head_sha
+    """(repo, number, head_sha) from `<owner>:<repo>:<number>:<40-hex sha>`; ValueError otherwise."""
+    match = REVIEW_ID.match(review_id)
+    if not match:
+        raise ValueError(f"not a review id: {review_id!r}")
+    return f"{match[1]}/{match[2]}", int(match[3]), match[4]
 
 
 def write_review(scratch, markdown, review_id, reviewed_at):
-    counts, verdict = parse_summary(markdown)
     repo, number, head_sha = parse_id(review_id)
+    counts, verdict = parse_summary(markdown)
     doc = {
         "repo": repo,
         "number": number,

@@ -136,8 +136,10 @@ def _keys(path: str, value, allowed: set[str]) -> list[str]:
 
 def _records(brief: dict, key: str, allowed: set[str], action: set[str]) -> list[str]:
     value = brief.get(key)
+    if key not in brief:
+        return []
     if not isinstance(value, list):
-        return [] if value is None else [f"{key}: not a list"]
+        return [f"{key}: not a list"]
     errors = []
     for i, record in enumerate(value):
         errors += _keys(f"{key}[{i}]", record, allowed)

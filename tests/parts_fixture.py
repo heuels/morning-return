@@ -41,7 +41,7 @@ def split(brief):
     github = part(
         fields={key: b[key] for key in (*PR_LISTS, "stale_closed")},
         sources={"github": b["sources"]["github"]},
-        handoffs={"repos": [], "pr_keys": pr_keys, "commit_identities": identities},
+        handoffs={"pr_keys": pr_keys, "commit_identities": identities},
     )
 
     senders = {}

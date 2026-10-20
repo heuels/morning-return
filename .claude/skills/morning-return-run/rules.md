@@ -25,8 +25,11 @@ Every step of the run follows these, and so does every subagent it starts.
 - **Look before you give up on a source.** Many tools load on demand. Before
   you decide a source is unavailable, search for its tools with `ToolSearch`
   by the names this prompt uses.
-- **A source that fails doesn't stop the run.** Record it in `sources` as
-  `{"ok": false, "error": "<one line>"}`, leave its lists `[]`, and carry on.
+- **A source that fails doesn't stop the run.** When your part owns that
+  source (parts.md), record it in `sources` as
+  `{"ok": false, "error": "<one line>"}` and leave its lists `[]`; when it
+  doesn't, leave `sources` empty and say what failed in one `notes`
+  sentence. Then carry on.
 - **Notes are for me, not about tools.** At most four short sentences about
   what I'd want to know: reviews queued, a review that only saw the diff, a
   holiday or clock change ahead. Never a note about a tool being missing.

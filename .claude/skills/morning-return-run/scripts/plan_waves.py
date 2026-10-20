@@ -21,34 +21,50 @@ def _part(parts, name):
     return value if isinstance(value, dict) else {}
 
 
-def _handoff(parts, name, key, default):
-    return (_part(parts, name).get("handoffs") or {}).get(key, default)
+def _handoff(parts, name, key, kind):
+    handoffs = _part(parts, name).get("handoffs")
+    value = handoffs.get(key) if isinstance(handoffs, dict) else None
+    return value if isinstance(value, kind) else kind()
+
+
+def _records(value):
+    return [entry for entry in value if isinstance(entry, dict)] if isinstance(value, list) else []
 
 
 def _prs(parts):
-    fields = _part(parts, "github").get("fields") or {}
-    return [pr for key in contract.PR_LISTS for pr in fields.get(key) or []]
+    fields = _part(parts, "github").get("fields")
+    fields = fields if isinstance(fields, dict) else {}
+    return [pr for key in contract.PR_LISTS for pr in _records(fields.get(key))]
 
 
 def _external_meeting(parts):
-    keys = _handoff(parts, "calendar", "meeting_keys", [])
-    return any(k.get("external_domains") for k in keys) or bool(_handoff(parts, "gmail", "invites", []))
+    keys = _records(_handoff(parts, "calendar", "meeting_keys", list))
+    return any(k.get("external_domains") for k in keys) or bool(_records(_handoff(parts, "gmail", "invites", list)))
+
+
+def _team_email(identity):
+    return isinstance(identity, dict) and str(identity.get("email") or "").lower().endswith("@" + contract.TEAM_DOMAIN)
 
 
 def _names_to_match(parts):
-    identities = _handoff(parts, "github", "commit_identities", {})
+    identities = _handoff(parts, "github", "commit_identities", dict)
     unmatched = [
         login
         for login, found in identities.items()
-        if not any((i.get("email") or "").lower().endswith("@" + contract.TEAM_DOMAIN) for i in found)
+        if not any(_team_email(i) for i in (found if isinstance(found, list) else [found]))
     ]
-    return bool(unmatched or _handoff(parts, "calendar", "ooo_names", []) or _handoff(parts, "linear", "linear_names", []))
+    return bool(unmatched or _handoff(parts, "calendar", "ooo_names", list) or _handoff(parts, "linear", "linear_names", list))
 
 
 def _linked_outside(parts):
     open_urls = {pr.get("url") for pr in _prs(parts)}
-    issues = _handoff(parts, "linear-enrich", "issues", {})
-    return any(url not in open_urls for issue in issues.values() for url in issue.get("pr_urls", []))
+    issues = _handoff(parts, "linear-enrich", "issues", dict)
+    return any(
+        isinstance(url, str) and url not in open_urls
+        for issue in issues.values()
+        if isinstance(issue, dict)
+        for url in (issue.get("pr_urls") if isinstance(issue.get("pr_urls"), list) else [])
+    )
 
 
 # Each later pass, and when it has something to do. Order follows parts.md.
@@ -56,7 +72,7 @@ RULES = {
     "slack-enrich": lambda p: bool(_prs(p)) or _external_meeting(p) or _names_to_match(p),
     "gmail-enrich": _external_meeting,
     "linear-enrich": lambda p: any(pr.get("linear_id") for pr in _prs(p)),
-    "meetings": lambda p: bool(_handoff(p, "calendar", "events", []) or _handoff(p, "gmail", "invites", [])),
+    "meetings": lambda p: bool(_records(_handoff(p, "calendar", "events", list)) or _records(_handoff(p, "gmail", "invites", list))),
     "github-enrich": _linked_outside,
 }
 

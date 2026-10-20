@@ -86,7 +86,9 @@ Paths below are relative to the repository root.
 2. `ArtifactData` `query` `briefs` (`order_by` `run_date` desc, `limit` 1) and
    `list` `reviews`. Today's brief should exist, every `sources` entry should
    be `ok` or carry an error line, each review the run reported should have
-   a document, and no note should say a pass didn't finish.
+   a document, and no note should say a pass didn't finish. The run's
+   `people_docs.py` line should not say documents were left for want of a
+   version; if it does, stale teammates aren't being refreshed.
 3. Compare the brief's `my_prs` numbers with `search_pull_requests`
    `is:open author:<login>` over the same repos.
 4. Open the page (`action: "open"`) and tell the user what was checked, what

@@ -126,6 +126,22 @@ class PeopleDocsTest(unittest.TestCase):
         writes = self.run_docs(brief_naming("ana@taxwire.com", "ben@taxwire.com", "cleo@taxwire.com"))
         self.assertNotIn("cleo@taxwire.com", [w["doc_id"] for w in writes])
 
+    def test_a_profile_that_isnt_one_is_skipped(self):
+        self.profiles["ana@taxwire.com"] = "Ana Lima"
+        self.profiles["ben@taxwire.com"] = {"photo_url": PHOTO}
+        writes = self.run_docs(brief_naming("ana@taxwire.com", "ben@taxwire.com", "cleo@taxwire.com"))
+        self.assertEqual([w["doc_id"] for w in writes], ["cleo@taxwire.com"])
+
+    def test_a_redirect_off_the_allowed_hosts_isnt_followed(self):
+        import urllib.error
+        import urllib.request
+
+        handler = people_docs.SafeRedirect()
+        request = urllib.request.Request(PHOTO)
+        with self.assertRaises(urllib.error.HTTPError):
+            handler.redirect_request(request, None, 302, "Found", {}, "https://evil.example/x.jpg")
+        self.assertIsNotNone(handler.redirect_request(request, None, 302, "Found", {}, "https://secure.gravatar.com/avatar/x"))
+
     def test_list_fresh_names_only_recent_documents(self):
         self.existing("ana@taxwire.com", "2026-10-19T07:00:00Z")
         self.existing("ben@taxwire.com", "2026-09-01T07:00:00Z")

@@ -54,7 +54,7 @@ def scratch_with(review_prs=(), my_prs=(), team=(), branches=(), pings=()):
         "sources": {"github": {"ok": True}},
         "fields": {"review_prs": list(review_prs), "my_prs": list(my_prs), "team_review_prs": list(team), "stale_closed": []},
         "notes": [],
-        "handoffs": {"repos": [{"repo": "taxwire/api", "clone": "https://example.invalid/api.git"}]},
+        "handoffs": {},
     }
     sessions = {"sources": {"sessions": {"ok": True}}, "fields": {}, "notes": [], "handoffs": {"branches": list(branches)}}
     slack = {
@@ -91,9 +91,11 @@ class QueueTest(unittest.TestCase):
         a, b = pr(1), pr(2, waiting="2026-10-11T00:00:00Z")
         tmp, scratch = scratch_with([a, b])
         with tmp:
-            result = review_queue.pick(scratch, existing={rid(a)}, limit=8)
+            (scratch / "existing" / "reviews").mkdir(parents=True)
+            (scratch / "existing" / "reviews" / f"{rid(a)}.json").write_text("{}")
+            result = review_queue.pick(scratch, existing=review_queue.existing_ids(scratch / "existing"), limit=8)
             self.assertEqual([r["id"] for r in result["run"]], [rid(b)])
-            self.assertEqual(result["run"][0]["clone"], "https://example.invalid/api.git")
+            self.assertEqual(result["run"][0]["clone"], "https://github.com/taxwire/api.git")
             self.assertEqual(reviews_part(scratch)["review_ids"], {"taxwire/api#1": rid(a)})
 
     def test_past_the_limit_is_queued(self):
@@ -104,6 +106,50 @@ class QueueTest(unittest.TestCase):
             self.assertEqual([r["number"] for r in result["run"]], [2, 3])
             self.assertEqual(result["queued"], 3)
             self.assertEqual(reviews_part(scratch)["queued"], 3)
+
+    def test_pick_cli_reads_the_saved_reviews(self):
+        a, b = pr(1), pr(2, waiting="2026-10-11T00:00:00Z")
+        tmp, scratch = scratch_with([a, b])
+        with tmp:
+            (scratch / "existing" / "reviews").mkdir(parents=True)
+            (scratch / "existing" / "reviews" / f"{rid(a)}.json").write_text("{}")
+            out = subprocess.run(
+                [sys.executable, str(SCRIPTS / "review_queue.py"), "pick", "--scratch", str(scratch), "--existing-dir", str(scratch / "existing")],
+                capture_output=True, text=True, check=True,
+            )
+        self.assertEqual([r["id"] for r in json.loads(out.stdout)["run"]], [rid(b)])
+
+    def test_malformed_prs_and_hand_offs_never_crash_the_queue(self):
+        good = pr(1)
+        bad = [
+            pr(2) | {"waiting_since": None},
+            pr(3) | {"additions": None},
+            pr(4) | {"repo": "example-api"},
+            pr(5) | {"head_sha": None},
+            pr(6) | {"head_sha": "abc"},
+            pr(7) | {"number": "7"},
+            "not a PR",
+        ]
+        pings = [{"url": "u1", "pr": None, "to_me": True}, {"url": "u2", "pr": {"repo": "x"}, "to_me": True}]
+        branches = [{"branch": "b", "finished": True}, "b"]
+        tmp, scratch = scratch_with([good, *bad], [None], [], branches, pings)
+        with tmp:
+            numbers = [c["number"] for c in review_queue.candidates(scratch)]
+        self.assertEqual(sorted(numbers), [1, 2, 3, 7])
+
+    def test_the_clone_url_is_always_githubs(self):
+        tmp, scratch = scratch_with([pr(1) | {"repo": "taxwire/api"}])
+        with tmp:
+            (cand,) = review_queue.candidates(scratch)
+        self.assertEqual(cand["clone"], "https://github.com/taxwire/api.git")
+
+    def test_a_branch_name_that_could_be_an_option_skips_the_review(self):
+        tmp, scratch = scratch_with([pr(1) | {"head_ref": "--upload-pack=touch /tmp/x"}, pr(2)])
+        with tmp:
+            result = review_queue.pick(scratch, existing=set(), limit=8)
+            self.assertEqual([r["number"] for r in result["run"]], [2])
+            notes = json.loads((scratch / "parts" / "reviews.json").read_text())["notes"]
+        self.assertTrue(any("taxwire/api#1" in note for note in notes), notes)
 
     def test_ids_cli_prints_one_id_per_line(self):
         a = pr(1)
@@ -148,6 +194,23 @@ class ReviewDocTest(unittest.TestCase):
     def test_capitals_and_spaces_parse(self):
         text = SUMMARY.replace("- Totals: Critical 1, High 2", "-  Totals:  CRITICAL 1,  high  2").replace("- Verdict: needs-work", "- Verdict:  Needs-Work")
         self.assertEqual(review_doc.parse_summary(text), ({"critical": 1, "high": 2, "medium": 0, "low": 3}, "needs-work"))
+
+    def test_summary_variations_parse(self):
+        variations = [
+            "- **Totals:** Critical 1, High 2, Medium 0, Low 3\n- **Verdict:** needs-work",
+            "* Totals: Critical 1, High 2, Medium 0, Low 3\n* Verdict: needs-work",
+            "- Totals: Critical: 1, High: 2, Medium: 0, Low: 3\n- Verdict: needs-work",
+            "- Totals: Critical 1, High 2, Medium 0, Low 3\n- Verdict: `needs-work`",
+        ]
+        for text in variations:
+            with self.subTest(text):
+                self.assertEqual(review_doc.parse_summary(text), ({"critical": 1, "high": 2, "medium": 0, "low": 3}, "needs-work"))
+
+    def test_an_id_without_a_full_sha_is_refused(self):
+        for bad in ("taxwire:api:7:None", "taxwire:api:7:abc", "taxwire:api:7", "taxwire:api:x:" + "7" * 40):
+            with self.subTest(bad):
+                with self.assertRaises(ValueError):
+                    review_doc.parse_id(bad)
 
     def test_no_totals_line_is_rejected_and_writes_nothing(self):
         tmp, scratch = write_review(SUMMARY.replace("- Totals: Critical 1, High 2, Medium 0, Low 3 (Total 6)\n", ""))

@@ -48,7 +48,7 @@ scripts do.
 ## Steps
 
 1. **Dates and this session.** Make the scratch directory (`mktemp -d`) with
-   `parts/` and `reviews/` in it. `run_date` is today's date in
+   `parts/`, `reviews/` and `review-md/` in it. `run_date` is today's date in
    {{TIMEZONE}}. `ArtifactData` `query` on `briefs`, `order_by` `run_date`
    descending, `limit` 2: the newest one whose `run_date` is before today
    gives `since` (its `generated_at`); with none, `since` is `null` and the
@@ -57,18 +57,19 @@ scripts do.
    `session_id` gives this session's `environment_id`; `list_environments`
    gives its name. Write `<scratch>/header.json`:
    `{run_date, since, login, environment: {id, name}, page_url, timezone, notes: []}`.
-2. **Wave 1.** Start the wave-1 passes (parts.md). While they run, get the
-   review prompt: `add_repo` `taxwire/taxwire-skills` with `access: "read"`,
+2. **Wave 1.** Start the wave-1 passes (parts.md). Then get the review
+   prompt: `add_repo` `taxwire/taxwire-skills` with `access: "read"`,
    `git clone --depth 1 --filter=blob:none --no-checkout <url> <scratch>/skills`,
    `git -C <scratch>/skills show HEAD:plugins/pr-review/skills/pr-review/pr-review.sh > <scratch>/pr-review.sh`,
    then `python3 <skill>/scripts/review_prompt.py --scratch <scratch> --script <scratch>/pr-review.sh --copy <skill>/review-prompt.md`.
    If any of that fails, run `review_prompt.py` without `--script`. Never
    open `pr-review.sh` yourself.
 3. **Between waves.** When wave 1 is back:
-   - `python3 <skill>/scripts/review_queue.py ids --scratch <scratch>`; `ArtifactData`
-     `get` each id on `reviews` and write the ones that exist to
-     `<scratch>/existing.txt`, one per line; then
-     `python3 <skill>/scripts/review_queue.py pick --scratch <scratch> --existing <scratch>/existing.txt`.
+   - `python3 <skill>/scripts/review_queue.py ids --scratch <scratch>`, then
+     `ArtifactData` `get` each id on `reviews` with `out_dir`
+     `<scratch>/existing`, so the reviews that exist are saved as files and
+     never enter your context. Then
+     `python3 <skill>/scripts/review_queue.py pick --scratch <scratch> --existing-dir <scratch>/existing`.
      Its `run` list is this run's reviews.
    - Make the clones and worktrees for them (reviews.md).
    - `ArtifactData` `list` `people` with `out_dir` `<scratch>/existing`
@@ -83,14 +84,18 @@ scripts do.
    `python3 <skill>/scripts/plan_waves.py --run-dir <skill> --scratch <scratch> --wave 3`,
    then in one message start reviews 5 to 8 and the wave-3 passes it named.
 6. **Review documents.** For each review that came back, run
-   `python3 <skill>/scripts/review_doc.py --scratch <scratch> --markdown <its file> --id <its id> --reviewed-at <now>`.
+   `python3 <skill>/scripts/review_doc.py --scratch <scratch> --markdown <scratch>/review-md/<repo>-<number>.md --id <its id> --reviewed-at <now>`.
    One that exits 1 is left for the next run.
 7. **Merge.** Write `generated_at` (now, UTC) into `header.json`, then
    `python3 <skill>/scripts/merge_brief.py --run-dir <skill> --scratch <scratch>`.
-   If it exits 1, each error names a part: start that part's pass once more,
-   giving it the error lines, and merge again. If it fails again, merge with
-   `--skip <part>` for each part still named.
+   It always writes the brief it can: a part's broken records are left out
+   with a note, and each problem is printed as `<part>: …`. When problems
+   name a pass, you may start that pass once more, giving it those lines,
+   then merge again and keep the second result. It exits 1 only when
+   `header.json` can't make a brief: fix the header and run it again.
 8. **People.** `python3 <skill>/scripts/people_docs.py --scratch <scratch> --existing <scratch>/existing --versions <scratch>/versions.json --now <now>`.
+   If it says documents were left for want of a version, `get` those people
+   once for their versions, add them to `versions.json`, and run it again.
 9. **Write.** `ArtifactData` `batch` the entries of `<scratch>/writes.json` as
    they are, at most 50 per call. Then `set` `briefs/<run_date>` with
    `file_path` `<scratch>/brief.json`, passing the `version` from step 1 as

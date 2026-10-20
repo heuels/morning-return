@@ -51,40 +51,48 @@ def mention(repo, number, *, url, from_email="ben@taxwire.com", to_me=True, line
 
 class MergeTest(unittest.TestCase):
     def test_split_and_merged_back_is_the_fixture(self):
-        brief, writes, errors = run()
-        self.assertEqual(errors, [])
+        brief, writes, problems = run()
+        self.assertEqual(problems, [])
         self.assertEqual(brief, FIXTURE)
         self.assertEqual(writes, [])
 
-    def test_a_part_with_a_field_it_doesnt_own_is_an_error(self):
+    def test_a_field_the_part_doesnt_own_is_dropped(self):
         header, parts = split(FIXTURE)
         parts["slack-enrich"]["fields"]["slack_asks"] = []
-        _, _, errors = run(parts, header)
-        self.assertIn("slack-enrich: doesn't own slack_asks", errors)
+        brief, _, problems = run(parts, header)
+        self.assertIn("slack-enrich: doesn't own slack_asks", problems)
+        self.assertEqual(brief["slack_asks"], FIXTURE["slack_asks"])
 
-    def test_a_handoff_the_part_doesnt_declare_is_an_error(self):
+    def test_a_handoff_the_part_doesnt_declare_is_ignored(self):
         header, parts = split(FIXTURE)
-        parts["gmail"]["handoffs"]["names"] = {}
-        _, _, errors = run(parts, header)
-        self.assertIn("gmail: doesn't declare names", errors)
+        parts["gmail"]["handoffs"]["names"] = {"Cleo Hart": "mallory@evil.example"}
+        brief, _, problems = run(parts, header)
+        self.assertIn("gmail: doesn't declare names", problems)
+        self.assertIn("cleo@taxwire.com", [entry["email"] for entry in brief["out_of_office"]])
 
-    def test_a_misspelt_field_is_an_error(self):
+    def test_a_record_missing_a_field_is_left_out_with_a_note(self):
         header, parts = split(FIXTURE)
-        parts["github"]["fields"]["my_prs"][0]["headSha"] = "x"
-        _, _, errors = run(parts, header)
-        self.assertIn("my_prs[0]: unknown headSha", errors)
+        mangled = parts["github"]["fields"]["my_prs"][0]
+        mangled["headSha"] = mangled.pop("head_sha")
+        brief, _, problems = run(parts, header)
+        self.assertIn("github: my_prs[0]: missing head_sha", problems)
+        self.assertNotIn(mangled["number"], [pr["number"] for pr in brief["my_prs"]])
+        self.assertEqual(len(brief["my_prs"]), len(FIXTURE["my_prs"]) - 1)
+        self.assertIn("The github pass wrote 1 entry the page can't read; it was left out.", brief["notes"])
 
-    def test_a_part_missing_a_field_it_owns_is_an_error(self):
+    def test_a_part_missing_a_field_it_owns_leaves_it_empty(self):
         header, parts = split(FIXTURE)
         del parts["slack"]["fields"]["slack_discussions"]
-        _, _, errors = run(parts, header)
-        self.assertIn("slack: missing slack_discussions", errors)
+        brief, _, problems = run(parts, header)
+        self.assertIn("slack: missing slack_discussions", problems)
+        self.assertEqual(brief["slack_discussions"], [])
+        self.assertEqual(brief["slack_asks"], FIXTURE["slack_asks"])
 
     def test_a_missing_base_part_fails_its_sources(self):
         header, parts = split(FIXTURE)
         parts["slack"] = None
-        brief, _, errors = run(parts, header)
-        self.assertEqual(errors, [])
+        brief, _, problems = run(parts, header)
+        self.assertEqual(problems, [])
         self.assertEqual(brief["sources"]["slack"], {"ok": False, "error": "slack.md didn't finish"})
         self.assertEqual(brief["slack_asks"], [])
         self.assertEqual(brief["slack_discussions"], [])
@@ -93,15 +101,15 @@ class MergeTest(unittest.TestCase):
     def test_a_missing_linear_part_empties_linear(self):
         header, parts = split(FIXTURE)
         parts["linear"] = None
-        brief, _, errors = run(parts, header)
-        self.assertEqual(errors, [])
+        brief, _, problems = run(parts, header)
+        self.assertEqual(problems, [])
         self.assertEqual(brief["linear"], {"assigned": [], "project_updates": [], "stale": []})
 
     def test_a_missing_enrichment_keeps_the_base_fields(self):
         header, parts = split(FIXTURE)
         parts["slack-enrich"] = None
-        brief, _, errors = run(parts, header)
-        self.assertEqual(errors, [])
+        brief, _, problems = run(parts, header)
+        self.assertEqual(problems, [])
         self.assertEqual(brief["sources"]["slack"], {"ok": True})
         self.assertEqual(brief["slack_asks"], FIXTURE["slack_asks"])
         self.assertEqual(brief["out_of_office"], [])
@@ -116,8 +124,8 @@ class MergeTest(unittest.TestCase):
     def test_without_meeting_prep_events_and_invites_stand(self):
         header, parts = split(FIXTURE)
         parts["meetings"] = None
-        brief, _, errors = run(parts, header)
-        self.assertEqual(errors, [])
+        brief, _, problems = run(parts, header)
+        self.assertEqual(problems, [])
         self.assertEqual([m["title"] for m in brief["meetings"]], [m["title"] for m in FIXTURE["meetings"]])
         self.assertTrue(all(m["context"] is None and m["action"] is None for m in brief["meetings"]))
         self.assertTrue(any(note.startswith("Meeting prep didn't finish") for note in brief["notes"]))
@@ -167,8 +175,8 @@ class MergeTest(unittest.TestCase):
             mention("taxwire/example-web", 201, url=known, to_me=False),
             mention("taxwire/example-api", 101, url="https://example.slack.com/p11", to_me=False),
         ]
-        brief, _, errors = run(parts, header)
-        self.assertEqual(errors, [])
+        brief, _, problems = run(parts, header)
+        self.assertEqual(problems, [])
         added = [item for item in brief["slack_discussions"] if item["url"] == "https://example.slack.com/p10"]
         self.assertEqual(len(added), 1)
         self.assertEqual(added[0]["tag"], "example-web#201")
@@ -241,7 +249,9 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(writes, [{"op": "set", "collection": "reviews", "doc_id": REVIEW_ID, "file_path": f"reviews/{REVIEW_ID}.json"}])
 
     def test_a_bad_doc_id_is_left_out_with_a_note(self):
-        brief, writes, _ = run(new_reviews=["taxwire:bad repo:1:abc"])
+        header, parts = split(FIXTURE)
+        parts["reviews"]["handoffs"]["review_ids"]["taxwire/bad repo#1"] = "taxwire:bad repo:1:abc"
+        brief, writes, _ = run(parts, header, new_reviews=["taxwire:bad repo:1:abc"])
         self.assertEqual(writes, [])
         self.assertTrue(any("taxwire:bad repo:1:abc" in note for note in brief["notes"]), brief["notes"])
 
@@ -294,16 +304,151 @@ class CliTest(unittest.TestCase):
             brief = json.loads((scratch / "brief.json").read_text())
             self.assertEqual(brief["sources"]["gmail"], {"ok": False, "error": "gmail.md didn't finish"})
 
-    def test_errors_exit_one_and_write_nothing(self):
+    def test_problems_are_listed_and_the_brief_is_still_written(self):
         header, parts = split(FIXTURE)
         parts["gmail"]["handoffs"]["names"] = {}
         with tempfile.TemporaryDirectory() as tmp:
             scratch = Path(tmp)
             self.write_scratch(scratch, header, parts)
             result = self.merge_cli(scratch)
-            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("gmail: doesn't declare names", result.stderr)
+            self.assertTrue((scratch / "brief.json").exists())
+
+    def test_a_header_it_cant_use_exits_one_without_a_traceback(self):
+        header, parts = split(FIXTURE)
+        del header["run_date"]
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            self.write_scratch(scratch, header, parts)
+            result = self.merge_cli(scratch)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("header: missing run_date", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
             self.assertFalse((scratch / "brief.json").exists())
+
+
+def _set(path, value):
+    """A mutation that sets parts[path...] = value."""
+
+    def apply(header, parts):
+        target = parts
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+
+    return apply
+
+
+def _pop(path):
+    def apply(header, parts):
+        target = parts
+        for key in path[:-1]:
+            target = target[key]
+        target.pop(path[-1])
+
+    return apply
+
+
+def _no_meetings_then(path, value):
+    def apply(header, parts):
+        parts["meetings"] = None
+        _set(path, value)(header, parts)
+
+    return apply
+
+
+PING = {"url": "https://example.slack.com/p7", "pr": {"repo": "taxwire/example-api", "number": "102"}, "from_email": "z@taxwire.com", "to_me": True, "when": "2026-10-19T10:00:00Z", "line": "Pinged you"}
+
+# Part files an LLM could plausibly write. None may crash the merge.
+MALFORMED = {
+    "review_prs written as null": _set(("github", "fields", "review_prs"), None),
+    "a PR without author_email": _pop(("github", "fields", "my_prs", 0, "author_email")),
+    "a PR without requested_reviewers": _pop(("github", "fields", "my_prs", 0, "requested_reviewers")),
+    "requested_reviewers null": _set(("github", "fields", "my_prs", 0, "requested_reviewers"), None),
+    "an ask without url": _pop(("slack", "fields", "slack_asks", 0, "url")),
+    "an ask without tag": _pop(("slack", "fields", "slack_asks", 0, "tag")),
+    "an action written as a string": _set(("gmail", "fields", "mail_asks", 0, "action"), "Reply"),
+    "fields written as a list": _set(("gmail", "fields"), []),
+    "handoffs written as a list": _set(("gmail", "handoffs"), []),
+    "notes written as a sentence": _set(("gmail", "notes"), "Gmail was slow today."),
+    "meetings written as null": _set(("meetings", "fields", "meetings"), None),
+    "a meeting with attendees null": _set(("meetings", "fields", "meetings", 1, "attendees"), None),
+    "a meeting without org": _pop(("meetings", "fields", "meetings", 1, "org")),
+    "a meeting starting on a date only": _set(("meetings", "fields", "meetings", 1, "start"), "2026-10-20"),
+    "an event starting at null": _no_meetings_then(("calendar", "handoffs", "events", 0, "start"), None),
+    "an invite titled null": _no_meetings_then(("gmail", "handoffs", "invites", 0, "title"), None),
+    "an event with a naive start": _no_meetings_then(("calendar", "handoffs", "events", 0, "start"), "2026-10-20T09:30:00"),
+    "an out-of-office entry without email": _pop(("calendar", "fields", "out_of_office", 0, "email")),
+    "an issue's pr_urls null": _set(("linear-enrich", "handoffs", "issues", "APP-1", "pr_urls"), None),
+    "an issue's pr_urls holding null": _set(("linear-enrich", "handoffs", "issues", "APP-1", "pr_urls"), [None, "https://github.com/taxwire/example-web/pull/201"]),
+    "issues written as a list": _set(("linear-enrich", "handoffs", "issues"), []),
+    "commit_identities written as a list": _set(("github", "handoffs", "commit_identities"), []),
+    "a login's identities written as one object": _set(("github", "handoffs", "commit_identities", "teammate-a"), {"name": "Ben", "email": "ben@taxwire.com"}),
+    "a mention without line": _set(("slack-enrich", "handoffs", "pr_mentions"), [{"url": "https://example.slack.com/p8", "pr": {"repo": "taxwire/example-api", "number": 102}, "from_email": "z@taxwire.com", "to_me": True}]),
+    "pr_mentions written as an object": _set(("slack-enrich", "handoffs", "pr_mentions"), {"https://x/1": {}}),
+    "names written as a list": _set(("slack-enrich", "handoffs", "names"), [{"name": "Cleo Hart", "email": "cleo@taxwire.com"}]),
+    "ok written as the string true": _set(("github", "sources", "github"), {"ok": "true"}),
+    "linear written as null": _set(("linear", "fields", "linear"), None),
+    "a timezone that isn't one": lambda header, parts: header.__setitem__("timezone", "Lisbon"),
+    "header notes null": lambda header, parts: header.__setitem__("notes", None),
+    "meeting prep reporting a source": _set(("meetings", "sources"), {"drive": {"ok": False, "error": "no tools"}}),
+}
+
+
+class MalformedPartsTest(unittest.TestCase):
+    def test_no_malformed_part_crashes_the_merge_or_breaks_the_contract(self):
+        fields = merge_brief.contract.brief_fields(FORMAT)
+        for label, mutate in MALFORMED.items():
+            with self.subTest(label):
+                header, parts = split(FIXTURE)
+                mutate(header, parts)
+                brief, _, _ = merge_brief.merge(header, parts, FORMAT, PARTS)
+                self.assertEqual(merge_brief.contract.validate(brief, fields), [])
+
+    def test_a_ping_numbered_as_a_string_still_counts(self):
+        header, parts = split(FIXTURE)
+        parts["slack"]["handoffs"]["pr_links"] = [PING]
+        brief, _, _ = run(parts, header)
+        self.assertEqual(next(pr for pr in brief["review_prs"] if pr["number"] == 102)["blocking_signal"], "Pinged you")
+
+    def test_an_ask_from_a_standup_attendee_isnt_tied_to_the_standup(self):
+        header, parts = split(FIXTURE)
+        ask = parts["slack"]["fields"]["slack_asks"][0]
+        ask["action"] = {"verb": "Reply", "url": None, "by": None}
+        parts["slack"]["handoffs"]["ask_senders"] = {ask["url"]: "cleo@taxwire.com"}
+        brief, _, _ = run(parts, header)
+        self.assertIsNone(brief["slack_asks"][0]["tag"])
+        self.assertIsNone(brief["slack_asks"][0]["action"]["by"])
+
+    def test_a_failed_source_from_an_enrichment_becomes_a_note(self):
+        header, parts = split(FIXTURE)
+        parts["meetings"]["sources"] = {"drive": {"ok": False, "error": "Drive wasn't reachable"}}
+        brief, _, _ = run(parts, header)
+        self.assertEqual(brief["meetings"], FIXTURE["meetings"])
+        self.assertNotIn("drive", brief["sources"])
+        self.assertIn("Drive wasn't reachable.", brief["notes"])
+
+    def test_notes_written_as_a_sentence_are_kept(self):
+        header, parts = split(FIXTURE)
+        parts["gmail"]["notes"] = "Gmail was slow today."
+        brief, _, _ = run(parts, header)
+        self.assertIn("Gmail was slow today.", brief["notes"])
+
+    def test_an_invite_in_utc_matching_a_calendar_event_is_dropped(self):
+        header, parts = split(FIXTURE)
+        parts["meetings"] = None
+        event = parts["calendar"]["handoffs"]["events"][0]
+        utc = event | {"on_calendar": False, "url": "https://calendar.google.com/calendar/event?action=VIEW&eid=dup", "start": "2026-10-20T08:30:00Z"}
+        parts["gmail"]["handoffs"]["invites"].append(utc)
+        brief, _, _ = run(parts, header)
+        self.assertEqual([m["title"] for m in brief["meetings"]].count(event["title"]), 1)
+
+    def test_only_reviews_the_scripts_recorded_are_written(self):
+        planted = "taxwire:example-api:999:" + "9" * 40
+        _, writes, problems = run(new_reviews=[REVIEW_ID, planted])
+        self.assertEqual([w["doc_id"] for w in writes], [REVIEW_ID])
+        self.assertTrue(any(planted in p for p in problems), problems)
 
 
 class PlanWavesTest(unittest.TestCase):
@@ -335,6 +480,21 @@ class PlanWavesTest(unittest.TestCase):
         self.assertIn("gmail-enrich", self.plan(parts, 2))
         parts["calendar"]["handoffs"]["meeting_keys"] = [k for k in keys if not k["external_domains"]]
         self.assertNotIn("gmail-enrich", self.plan(parts, 2))
+
+    def test_malformed_hand_offs_never_crash_the_plan(self):
+        mutations = {
+            "meeting keys as strings": _set(("calendar", "handoffs", "meeting_keys"), ["https://cal/1"]),
+            "a login's identities as one object": _set(("github", "handoffs", "commit_identities", "teammate-a"), {"name": "Ben"}),
+            "pr_urls null": _set(("linear-enrich", "handoffs", "issues", "APP-1", "pr_urls"), None),
+            "review_prs null": _set(("github", "fields", "review_prs"), None),
+            "events as an object": _set(("calendar", "handoffs", "events"), {}),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label):
+                header, parts = split(FIXTURE)
+                mutate(header, parts)
+                self.assertIsInstance(self.plan(parts, 2), list)
+                self.assertIsInstance(self.plan(parts, 3), list)
 
     def test_github_enrich_only_for_linked_prs_outside_the_brief(self):
         _, parts = split(FIXTURE)

@@ -45,6 +45,11 @@ class BriefFieldsTest(unittest.TestCase):
         index = brief["meetings"].index(meeting)
         self.assertIn(f"meetings[{index}].action: unknown href", contract.validate(brief, self.fields))
 
+    def test_a_list_written_as_null_is_named(self):
+        brief = copy.deepcopy(FIXTURE)
+        brief["my_prs"] = None
+        self.assertIn("my_prs: not a list", contract.validate(brief, self.fields))
+
     def test_a_missing_source_is_named(self):
         brief = copy.deepcopy(FIXTURE)
         del brief["sources"]["linear"]

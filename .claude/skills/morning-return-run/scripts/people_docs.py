@@ -29,6 +29,7 @@ import io
 import json
 import re
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -64,8 +65,20 @@ def allowed(url):
     return parsed.scheme == "https" and parsed.hostname in HOSTS
 
 
+class SafeRedirect(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only to another allowed image host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not allowed(newurl):
+            raise urllib.error.HTTPError(newurl, code, "redirect off the allowed image hosts", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(SafeRedirect)
+
+
 def default_fetch(url):
-    with urllib.request.urlopen(url, timeout=5) as response:
+    with _OPENER.open(url, timeout=5) as response:
         return response.read(MAX_BYTES)
 
 
@@ -106,15 +119,21 @@ def fresh(existing_dir, now):
     return [path.stem for path in paths if not _due(existing_dir, path.stem, _when(now))]
 
 
-def write_people(scratch, brief, existing_dir, versions, now, fetch=default_fetch):
+def write_people(scratch, brief, existing_dir, versions, now, fetch=default_fetch, unpinned=None):
+    """The batch entries for the people documents written; emails left for lack of a version go in `unpinned`."""
+    unpinned = [] if unpinned is None else unpinned
     enrich = contract.read_json(scratch / "parts" / "slack-enrich.json")
-    profiles = ((enrich or {}).get("handoffs") or {}).get("people_profiles") or {}
+    handoffs = enrich.get("handoffs") if isinstance(enrich, dict) and isinstance(enrich.get("handoffs"), dict) else {}
+    profiles = handoffs.get("people_profiles") if isinstance(handoffs.get("people_profiles"), dict) else {}
     exists = {path.stem for path in (existing_dir / "people").glob("*.json")}
     (scratch / "people").mkdir(exist_ok=True)
     writes = []
     for email in teammate_emails(brief):
         profile = profiles.get(email)
-        if not profile or not _due(existing_dir, email, _when(now)) or (email in exists and email not in versions):
+        if not isinstance(profile, dict) or not isinstance(profile.get("name"), str) or not _due(existing_dir, email, _when(now)):
+            continue
+        if email in exists and not isinstance(versions.get(email), int):
+            unpinned.append(email)
             continue
         doc = {"name": profile["name"], "org": "Taxwire", "photo": _photo(profile.get("photo_url"), fetch), "updated_at": now}
         path = scratch / "people" / f"{email}.json"
@@ -140,12 +159,17 @@ def main(argv=None, fetch=default_fetch):
         return 0
     if not (args.scratch and args.versions):
         parser.error("--scratch and --versions are required to write documents")
-    brief = contract.read_json(args.brief or args.scratch / "brief.json") or {}
-    versions = contract.read_json(args.versions) or {}
-    writes = write_people(args.scratch, brief, args.existing, versions, args.now, fetch)
+    brief = contract.read_json(args.brief or args.scratch / "brief.json")
+    brief = brief if isinstance(brief, dict) else {}
+    versions = contract.read_json(args.versions)
+    versions = versions if isinstance(versions, dict) else {}
+    unpinned = []
+    writes = write_people(args.scratch, brief, args.existing, versions, args.now, fetch, unpinned)
     all_writes = (contract.read_json(args.scratch / "writes.json") or []) + writes
     (args.scratch / "writes.json").write_text(json.dumps(all_writes, indent=2) + "\n")
     print(f"{len(writes)} people documents")
+    if unpinned:
+        print(f"{len(unpinned)} stale, left as they are: no version known for {', '.join(unpinned)}")
     return 0
 
 

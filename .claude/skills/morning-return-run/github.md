@@ -7,9 +7,9 @@ Fills `my_prs`, `review_prs`, `team_review_prs` and `stale_closed`.
 If this session has `list_repos` and `add_repo`: `list_repos` with
 `query: "taxwire/"` and `limit: 200`, keep the `taxwire/*` repos whose last
 push is within the last 30 days, and `add_repo` each one with
-`access: "read"`. A repo it refuses goes in `notes` and is skipped. Each repo
-and the clone URL `add_repo` gave go in the `repos` hand-off. If this session
-doesn't have them, use the repositories already attached to this session.
+`access: "read"`. A repo it refuses goes in `notes` and is skipped. If this
+session doesn't have them, use the repositories already attached to this
+session.
 Every GitHub search below covers only these repos: split them into groups so
 each query, with its `repo:owner/name` qualifiers, stays under 250
 characters, run the search once per group, and merge the results.
