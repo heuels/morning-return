@@ -15,6 +15,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 RUN_DIR = REPO / ".claude" / "skills" / "morning-return-run"
+# The heredoc extractor lives with the run, which reads pr-review.sh itself.
+sys.path.insert(0, str(RUN_DIR / "scripts"))
+
+from review_prompt import extract_review_prompt
 
 # The run's files, in the order the full prompt carries them. The review
 # prompt goes last and is never scanned for placeholders: it has its own.
@@ -56,18 +60,6 @@ FULL_HEADER = """This prompt carries every file of the morning-return run, each 
 "File:" heading. Where one file names another (rules.md, github.md and so on),
 it means that file's section below. Start with SKILL.md.
 """
-
-
-def extract_review_prompt(script_text: str) -> str:
-    """Return the review prompt heredoc from pr-review.sh, without its markers."""
-    lines = script_text.splitlines()
-    start = next((i for i, line in enumerate(lines) if "<<'PROMPT_EOF'" in line), None)
-    end = None
-    if start is not None:
-        end = next((i for i in range(start + 1, len(lines)) if lines[i] == "PROMPT_EOF"), None)
-    if start is None or end is None:
-        raise ValueError("review prompt markers not found in pr-review.sh")
-    return "\n".join(lines[start + 1 : end])
 
 
 def check(*, github_login: str, artifact_url: str) -> None:

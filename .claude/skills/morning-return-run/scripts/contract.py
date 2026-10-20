@@ -183,3 +183,20 @@ def read_json(path):
 
 def read_parts(scratch, names):
     return {name: read_json(scratch / "parts" / f"{name}.json") for name in names}
+
+
+def update_handoffs(scratch, name, updates):
+    """Add hand-offs to a part written by scripts, merging dict hand-offs."""
+    path = scratch / "parts" / f"{name}.json"
+    part = read_json(path)
+    if not isinstance(part, dict):
+        part = {"sources": {}, "fields": {}, "notes": [], "handoffs": {}}
+    handoffs = part.setdefault("handoffs", {})
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(handoffs.get(key), dict):
+            handoffs[key] = handoffs[key] | value
+        else:
+            handoffs[key] = value
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(part, indent=2) + "\n")
+    return part

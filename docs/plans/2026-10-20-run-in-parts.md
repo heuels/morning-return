@@ -69,8 +69,8 @@ scripts, plus Pillow in `people_docs.py`. The tests use `unittest`.
 **Scripts**
 - Python 3, in `.claude/skills/morning-return-run/scripts/`.
 - Deterministic, and no network. The one exception is `people_docs.py`,
-  which fetches only from `avatars.slack-edge.com` and
-  `secure.gravatar.com`.
+  which fetches only from `avatars.slack-edge.com`, `ca.slack-edge.com` and
+  `secure.gravatar.com` (Slack serves profile photos from all three).
 - Exit 0 on success, 1 with one error per line on stderr.
 
 **Failures**
@@ -395,7 +395,11 @@ summaries the Drive synthesiser reads.
   - Verdict: `^- Verdict: (blocking|needs-work|minor|ship-ready)\b`,
     case-insensitive, stored in lower case.
 - Produces
-  `people_docs.py --scratch <dir> --brief <brief.json> --existing <dir> --now <iso>`.
+  `people_docs.py --scratch <dir> --existing <dir> --versions <file> --now <iso>`.
+  - `ArtifactData`'s saved files hold only the document data, so the
+    orchestrator writes `--versions` (`{email: version}`) from the list
+    result.
+  - An existing document whose version isn't known is left alone.
   - It finds every teammate email the brief names (as `app.js`'s
     `personEmails` does), whose document is missing or more than 30 days
     old.
