@@ -111,5 +111,5 @@ run it.
 | slack | `8a43f4e5-70cf-4897-b7f9-df683ecf443c`, `Slack` | `slack_search_public_and_private`, `slack_read_thread`, `slack_read_channel`, `slack_get_reactions`, `slack_search_users`, `slack_read_user_profile` |
 | gmail | `c7542e7c-885c-48cd-9b74-ecdf4fdf1d26`, `Gmail` | `search_threads`, `get_thread` |
 | calendar | `9a7a8585-9f55-4ba2-9388-b200c6b55844`, `Google-Calendar`, `Google_Calendar` | `list_calendars`, `list_events` |
-| linear | `0e265249-b98c-497c-b9a3-1c37685deedb`, `Linear` | `get_user`, `get_notifications`, `get_issue`, `list_comments`, `list_issues` |
+| linear | `0e265249-b98c-497c-b9a3-1c37685deedb`, `Linear` | `get_user`, `get_notifications`, `get_issue`, `get_project`, `get_status_updates`, `list_comments`, `list_issues` |
 | drive | `379b4aa5-6cf0-49ac-9d45-1f9d61a76a0d`, `Google-Drive`, `Google_Drive` | `search_files`, `read_file_content` |

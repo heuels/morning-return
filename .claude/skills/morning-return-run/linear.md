@@ -16,7 +16,13 @@ Fills `linear` and `linear_asks`.
   it's answered. Each becomes an Item, with the issue identifier as `tag`
   and the commenter's email in `people` when they are a teammate.
 - `project_updates`: `projectUpdatePrompt` notifications ("Project update is
-  overdue"), one per project.
+  overdue"), the newest one per project. Such a notification stays unread
+  after the project is finished or its update is posted, so check each with
+  `get_project` (the slug at the end of its `url`): keep it only when the
+  project's `status.type` is `started` and its `lead` is me, and
+  `get_status_updates` (`type: "project"`, the project's `id`, `createdAt`
+  the notification's) finds no update posted since. `due` is the
+  notification's date.
 - `stale`: `list_issues` with `assignee: "me"`, `state: "started"`; keep
   those not updated in 14 days with no open PR among their attachments.
 
