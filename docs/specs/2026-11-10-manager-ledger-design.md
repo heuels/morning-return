@@ -53,9 +53,8 @@ by the run.
 
 A short list at the top of the page: each teammate's name and Taxwire email.
 Egor keeps it; the run only reads it. It decides whose commitments and
-deadlines count as "my team's". Setup seeds it with the Integrations
-roadmap's project owners (Aasim Sani, Jonathan Reiss, Chandler Brown, Lucas
-Gerbeaux) and asks Egor to confirm or edit before the first run.
+deadlines count as "my team's". Setup seeds it with Jonathan Reiss, Chandler
+Brown, Lucas Gerbeaux and Parker Catalano.
 
 The same block holds **Watched channels**: the Slack channels the run reads
 for project news. Setup seeds it with the channels where team project news
@@ -178,7 +177,9 @@ page until the script accepts it):
 - `new_commitments`: owed or dated things involving Egor, his team or their
   projects, each with whose, due, due as said, project key and source link.
   Scope is Egor, the team list, and the ledger's projects. Other teams'
-  dates (a customer's filing calendar) stay out.
+  dates (a customer's filing calendar) stay out. A deployment blocker on
+  Kent's page is in scope only when someone on the team list owns it or it
+  matches a ledger project.
 - `done`: existing rows with the link that shows they're done.
 - `due_moves`: rows or projects whose date moved, with the source.
 - `project_lines`: dated one-line updates per project, with links. Two
@@ -187,9 +188,9 @@ page until the script accepts it):
   with its owner's flag (past its date with no update; "done" with no
   customer on it; blocked in Slack but 🟢 on the roadmap), or a clear read
   when it no longer disagrees.
-- `new_projects`: work that isn't on the roadmap or in the ledger, seen in
-  at least two places, or in one deployment blocker or customer call, with
-  its evidence links.
+- `new_projects`: work that isn't on the roadmap or in the ledger, with
+  its evidence links: seen in two places, or in one customer call, or in
+  one deployment blocker someone on the team list owns.
 - `news`: what changed since the last brief that Egor should hear about
   today, each tied to a project.
 - `ask_projects`: `{item url: project key}` for each Slack, mail or Linear
@@ -207,8 +208,8 @@ page until the script accepts it):
   `ledger_seen`, so a row Egor deleted (gone from Notion, still in
   `ledger_seen`) is never re-added;
 - counts a not-on-the-roadmap project's sightings across runs (two within
-  14 days, or one deployment blocker or customer call, before it becomes a
-  Projects row);
+  14 days, one customer call, or one deployment blocker the team owns,
+  before it becomes a Projects row);
 - enforces *What the run may change*;
 - turns accepted changes into an ordered list of Notion operations with
   page and data-source ids;
@@ -286,8 +287,8 @@ Everything stays in the ledger; MR surfaces only what's relevant today:
 News        SAP (EAE): dev access is here, testing can start · Notion ↗
 Asks        Pau: Sage partner intro?   ⛔ Blocked · waiting on credentials · Notion ↗
 Follow-ups  ☑ Platinum Micro answers + CEO note · sent Nov 10
-Coming up   Today   Burst Testing · Blue Garage $8k · Steven         blockers ↗
-            Nov 16  Salesforce Tax Calculations · $85k · Parker      blockers ↗
+Coming up   Nov 13  Shopify Channel Sales · Small Batch Pets $14k · Jonathan R.  blockers ↗
+            Nov 16  Salesforce Tax Calculations · $85k · Parker               blockers ↗
 Projects    Campfire OAuth app: owner 🟢 · run: past Oct 30, no customer migrated
 Missing     Not on the roadmap: Salesforce native, Tabs, SAP (EAE)
 ```
@@ -397,14 +398,18 @@ And a new document, `runs/current`: `{mode, started_at, finished_at}`.
   deadline is news.
 - No production connector: he'll post Campfire's state on Slack.
 - Project news (SAP) goes to MR and to the project's page.
+- The team: Jonathan Reiss, Chandler Brown, Lucas Gerbeaux, Parker Catalano.
+- Deployment blockers count only when the team owns them or they match a
+  ledger project.
 
 ## My calls (for Egor to check)
 
 - One Commitments database, with Follow-ups and Deadlines as views.
-- The team list and watched channels live on the ledger page, seeded as
-  above, edited by Egor.
-- A project missing from the roadmap needs two sightings, or one deployment
-  blocker or customer call.
+- The team list and watched channels live on the ledger page, where Egor
+  edits them; watched channels start as #t-integrations, #t-deployments,
+  #internal-eae, #opportunities and #gtm.
+- A project missing from the roadmap needs two sightings within 14 days,
+  or one customer call, or one deployment blocker the team owns.
 - Done needs evidence: his sent mail or Slack reply in the same thread, a
   merged PR, a closed Linear issue, or a later message saying it's done.
 - Refresh gathers over the morning run's window, so nothing the morning
