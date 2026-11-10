@@ -250,7 +250,7 @@ rows' Notion links reach the brief.
   It replaces today's brief and updates the ledger. Most of a full run's
   cost is the Opus reviews, so a quick run costs a fraction of one.
 - **Backfill**: once, from setup, right after the ledger is created: a
-  quick run over the last 14 days, with higher caps for calls, channels and
+  quick run over the last 30 days, with higher caps for calls, channels and
   mail, so the ledger starts with the history the success examples need
   (the Nov 5 and Nov 6 SAP lines, the Tabs calls).
 
@@ -401,6 +401,7 @@ And a new document, `runs/current`: `{mode, started_at, finished_at}`.
 - The team: Jonathan Reiss, Chandler Brown, Lucas Gerbeaux, Parker Catalano.
 - Deployment blockers count only when the team owns them or they match a
   ledger project.
+- A 30-day backfill when the ledger is created.
 
 ## My calls (for Egor to check)
 
@@ -416,7 +417,6 @@ And a new document, `runs/current`: `{mode, started_at, finished_at}`.
   showed disappears; it skips only reviews.
 - The run's memory of what it added lives in the page's database
   (`ledger_seen`), not in Notion.
-- A one-off 14-day backfill when the ledger is created.
 - Project news is found in the wave-2 Slack and Gmail passes, which can read
   the ledger's channels, team and aliases.
 - Models: notion sonnet/medium, calls sonnet/high, ledger opus/high, writer
